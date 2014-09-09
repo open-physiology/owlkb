@@ -43,7 +43,7 @@ public class Owlkb
 
     logstring( "Loading ontology...");
 
-    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("/home/sarala/testkb/pato.owl"));
+    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("/home/sarala/testkb/pato.owl"));  //Location of OWL file
 
     logstring( "Ontology is loaded.");
 
@@ -123,6 +123,7 @@ public class Owlkb
       parser.setOWLEntityChecker(ec);
 
       logstring( "Got request: ["+req+"]" );
+      long start_time = System.nanoTime();
 
       try
       {
@@ -232,6 +233,12 @@ public class Owlkb
       os.close();
 
       logstring( "Response transmitted.");
+
+      /*
+       * Measure computation time in ms.
+       */
+      long runtime = (System.nanoTime() - start_time) / 1000000;
+      logstring( "It took "+runtime+"ms to handle the request." );
     }
   }
 
