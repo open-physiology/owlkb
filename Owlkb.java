@@ -14,7 +14,12 @@ import java.io.*;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashSet;
+
 import org.semanticweb.HermiT.Reasoner;
+import org.semanticweb.elk.owlapi.ElkReasonerFactory;
+import org.semanticweb.owlapi.reasoner.OWLReasoner;
+import org.semanticweb.owlapi.reasoner.OWLReasonerFactory;
+
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLOntology;
@@ -62,13 +67,37 @@ public class Owlkb
     OWLEntityChecker entityChecker = new ShortFormEntityChecker(shorts);
 
     /*
-     * Initiate the HermiT reasoner (automatically includes precomputing inferences)
+     * Initiate the reasoner
      */
     logstring( "Establishing reasoner...");
 
-    Reasoner r = new Reasoner(ont);
+    OWLReasoner r;
+
+    if ( args.length==0 || args[0].toLowerCase().equals("elk") )
+    {
+      OWLReasonerFactory rf = new ElkReasonerFactory();
+      r = rf.createReasoner(ont);
+    }
+    else if ( args[0].toLowerCase().equals("hermit") )
+      r = new Reasoner(ont);
+    else
+    {
+      System.out.println("Unrecognized reasoner specified.  Valid reasoners are Elk and HermiT.");
+      System.out.println("");
+      return;
+    }
 
     logstring( "Reasoner established.");
+
+    /*
+     * Precompute inferences.
+     */
+    logstring( "Precomputing inferences...");
+
+    long start_time = System.nanoTime();
+    r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
+
+    logstring( "Finished precomputing inferences (took "+(System.nanoTime()-start_time)/1000000+"ms)" );
 
     /*
      * Launch HTTP server
@@ -94,14 +123,14 @@ public class Owlkb
   static class NetHandler implements HttpHandler
   {
     String srvtype;
-    Reasoner r;
+    OWLReasoner r;
     OWLOntologyManager m;
     OWLOntology o;
     OWLEntityChecker ec;
     String kbNs;
     IRI iri;
 
-    public NetHandler(String srvtype, Reasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, String kbNs, IRI iri)
+    public NetHandler(String srvtype, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, String kbNs, IRI iri)
     {
       this.srvtype = srvtype;
       this.r = r;
@@ -246,7 +275,7 @@ public class Owlkb
    * The following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
-  private static ArrayList<Term> getSubTerms(OWLClassExpression exp, Reasoner r)
+  private static ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, false);
@@ -262,7 +291,7 @@ public class Owlkb
     return idList;
   }
 
-  private static ArrayList<Term> getEquivalentTerms(OWLClassExpression exp, Reasoner r)
+  private static ArrayList<Term> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
     Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
@@ -282,7 +311,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> getTerms(OWLClassExpression exp, Reasoner r)
+  public static ArrayList<Term> getTerms(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
 
@@ -292,7 +321,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> addTerm(OWLClassExpression exp, Reasoner r, OWLOntologyManager mgr, String kbNs, OWLOntology ont, IRI iri)
+  public static ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, String kbNs, OWLOntology ont, IRI iri)
   {
     logstring( "addTerm called..." );
 
