@@ -48,7 +48,7 @@ public class Owlkb
 
     logstring( "Loading ontology...");
 
-    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("/home/sarala/testkb/pato.owl"));  //Location of OWL file
+    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("/home/sarala/testkb/ricordo.owl"));  //Location of OWL file
 
     logstring( "Ontology is loaded.");
 
@@ -340,6 +340,10 @@ public class Owlkb
       mgr.addAxioms(ont,axiomSet);
 
       logstring( "New term added to ontology in RAM." );
+
+      /*
+       * Temporarily disable saving ontology to hard drive
+       *
       logstring( "Saving ontology to hard drive..." );
 
       try
@@ -352,6 +356,9 @@ public class Owlkb
       }
 
       logstring( "Finished saving ontology to hard drive." );
+       *
+       */
+
       logstring( "Precomputing inferences..." );
 
       idList.add(new Term(newowlclass.toStringID()));

@@ -1,4 +1,4 @@
-Owlkb is a server that loads and queries a knowledgebase, in the form of an OWL ontology,
+Owlkb is a server that loads a knowledgebase, in the form of an OWL ontology,
 and handles queries, in Manchester syntax, via an API.  In case a class does not already
 exist that is equivalent to the query results, Owlkb will add a so-called "composite" term
 to the ontology.  Owlkb is part of the RICORDO project.  Owlkb was first written by
