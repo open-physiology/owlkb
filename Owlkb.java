@@ -338,6 +338,7 @@ public class Owlkb
       axiomSet.add(axiom);
 
       mgr.addAxioms(ont,axiomSet);
+      r.flush();
 
       logstring( "New term added to ontology in RAM." );
 
