@@ -238,6 +238,8 @@ public class Owlkb
               {
                 response = "There was an error getting the results";
               }
+
+              response += "<h5>Runtime</h5>This computation took "+(System.nanoTime() - start_time) / 1000000+"ms to complete";
             }
           }
           else
