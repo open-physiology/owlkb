@@ -72,14 +72,19 @@ public class Owlkb
     logstring( "Establishing reasoner...");
 
     OWLReasoner r;
+    String rname;
 
     if ( args.length==0 || args[0].toLowerCase().equals("elk") )
     {
       OWLReasonerFactory rf = new ElkReasonerFactory();
       r = rf.createReasoner(ont);
+      rname = "elk";
     }
     else if ( args[0].toLowerCase().equals("hermit") )
+    {
       r = new Reasoner(ont);
+      rname = "hermit";
+    }
     else
     {
       System.out.println("Unrecognized reasoner specified.  Valid reasoners are Elk and HermiT.");
@@ -105,10 +110,10 @@ public class Owlkb
     logstring( "Initiating server...");
 
     HttpServer server = HttpServer.create(new InetSocketAddress(20080), 0 );
-    server.createContext("/subterms", new NetHandler("subterms", r, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/eqterms", new NetHandler("eqterms", r, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/terms", new NetHandler("terms", r, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/test", new NetHandler("test", r, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/subterms", new NetHandler("subterms", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/eqterms", new NetHandler("eqterms", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/terms", new NetHandler("terms", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/test", new NetHandler("test", r, rname, manager, ont, entityChecker, kbNs, iri));
 
     server.setExecutor(null);
     server.start();
@@ -124,16 +129,18 @@ public class Owlkb
   {
     String srvtype;
     OWLReasoner r;
+    String rname;
     OWLOntologyManager m;
     OWLOntology o;
     OWLEntityChecker ec;
     String kbNs;
     IRI iri;
 
-    public NetHandler(String srvtype, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, String kbNs, IRI iri)
+    public NetHandler(String srvtype, OWLReasoner r, String rname, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, String kbNs, IRI iri)
     {
       this.srvtype = srvtype;
       this.r = r;
+      this.rname = rname;
       this.m = m;
       this.o = o;
       this.ec = ec;
@@ -182,7 +189,7 @@ public class Owlkb
             if ( srvtype.equals("subterms") )
               terms = getSubTerms(exp,r);
             else if ( srvtype.equals("eqterms") )
-              terms = addTerm(exp, r, m, kbNs, o, iri);
+              terms = addTerm(exp, r, rname, m, kbNs, o, iri);
             else if ( srvtype.equals("terms") )
               terms = getTerms(exp,r);
 
@@ -198,7 +205,7 @@ public class Owlkb
 
             try
             {
-              terms = addTerm(exp, r, m, kbNs, o, iri);
+              terms = addTerm(exp, r, rname, m, kbNs, o, iri);
             }
             catch(Exception e)
             {
@@ -323,7 +330,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, String kbNs, OWLOntology ont, IRI iri)
+  public static ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, String rname, OWLOntologyManager mgr, String kbNs, OWLOntology ont, IRI iri)
   {
     logstring( "addTerm called..." );
 
@@ -340,7 +347,9 @@ public class Owlkb
       axiomSet.add(axiom);
 
       mgr.addAxioms(ont,axiomSet);
-      r.flush();
+
+      if ( rname == "elk" )
+        r.flush();
 
       logstring( "New term added to ontology in RAM." );
 
