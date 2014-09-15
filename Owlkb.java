@@ -150,7 +150,15 @@ public class Owlkb
 
     public void handle(HttpExchange t) throws IOException
     {
-      String response = "<table><tr><th>ID</th></tr>";
+      Headers requestHeaders = t.getRequestHeaders();
+      int fJson;
+      if ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") )
+        fJson = 1;
+      else
+        fJson = 0;
+
+      String response;
+
       String req = t.getRequestURI().toString().substring(2+srvtype.length());
       req = java.net.URLDecoder.decode(req, "UTF-8");
 
@@ -193,11 +201,7 @@ public class Owlkb
             else if ( srvtype.equals("terms") )
               terms = getTerms(exp,r);
 
-            for ( Term termp : terms )
-            {
-              response += "<tr><td>"+shorturl(termp.getId())+"</td></tr>";
-            }
-            response += "</table>";
+            response = compute_response( terms, fJson );
           }
           else if ( srvtype.equals("test") )
           {
@@ -399,6 +403,40 @@ public class Owlkb
   public static void logstring( String x )
   {
     System.out.println( x );
+  }
+
+  public static String compute_response( ArrayList<Term> terms, int fJson )
+  {
+    String x;
+
+    if ( fJson == 1 )
+    {
+      x = "[";
+      int fencepost = 0;
+
+      for ( Term termp : terms )
+      {
+        if ( fencepost == 0 )
+        {
+          fencepost = 1;
+          x += "'"+shorturl(termp.getId())+"'";
+        }
+        else
+          x += ", '"+shorturl(termp.getId())+"'";
+      }
+      x += "]";
+    }
+    else
+    {
+      x = "<table><tr><th>ID</th></tr>";
+
+      for ( Term termp : terms )
+        x += "<tr><td>"+shorturl(termp.getId())+"</td></tr>";
+
+      x += "</table>";
+    }
+
+    return x;
   }
 
   /*
