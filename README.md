@@ -19,3 +19,12 @@ INSTALLATION
 5. Use "make" to invoke the Makefile and compile Owlkb.  Alternately, compile manually with "javac -g Owlkb.java".
 6. Owlkb is now installed.  In order to run it, from the working directory chosen in step 2, type "java Owlkb".
    It is left up to the user to make it persistent (e.g. with crontab, etc.)
+
+This repository doesn't include any GUI or anything.  One way to test the install is to query via command line.
+For example, if your ontology contains terms EXAMPLE_00015, EXAMPLE_00020, and relations inheres-in and part-of,
+some example commandline queries are:
+
+curl "http://localhost:20080/subterms/EXAMPLE_00015"
+curl "http://localhost:20080/terms/EXAMPLE_00015%20and%20inheres-in%20some%20EXAMPLE_00020"
+curl "http://localhost:20080/eqterms/part-of%20some%20(inheres-in%20some%20EXAMPLE_00015)"
+etc.
