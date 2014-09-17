@@ -54,7 +54,7 @@ public class Owlkb
     OWLOntologyLoaderConfiguration config = new OWLOntologyLoaderConfiguration();         // If the main ontology imports an RDF fragment,
     config.setMissingOntologyHeaderStrategy(OWLOntologyLoaderConfiguration.MissingOntologyHeaderStrategy.IMPORT_GRAPH);  // prevent that fragment from being saved into the ontology.
 
-    File kbfile = new File("/home/sarala/testkb/ddmore.owl"); //Location of OWL file
+    File kbfile = new File("/home/sarala/testkb/ricordo.owl"); //Location of OWL file
 
     OWLOntology ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbfile),config);
 

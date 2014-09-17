@@ -25,6 +25,9 @@ For example, if your ontology contains terms EXAMPLE_00015, EXAMPLE_00020, and r
 some example commandline queries are:
 
 curl "http://localhost:20080/subterms/EXAMPLE_00015"
+
 curl "http://localhost:20080/terms/EXAMPLE_00015%20and%20inheres-in%20some%20EXAMPLE_00020"
+
 curl "http://localhost:20080/eqterms/part-of%20some%20(inheres-in%20some%20EXAMPLE_00015)"
+
 etc.
