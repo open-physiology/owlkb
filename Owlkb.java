@@ -23,8 +23,11 @@ import org.semanticweb.owlapi.reasoner.OWLReasonerFactory;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLOntology;
+import org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration;
 import org.semanticweb.owlapi.model.*;
 import org.semanticweb.owlapi.reasoner.*;
+import org.semanticweb.owlapi.io.OWLOntologyDocumentSource;
+import org.semanticweb.owlapi.io.FileDocumentSource;
 import org.coode.owlapi.manchesterowlsyntax.ManchesterOWLSyntaxEditorParser;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProvider;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProviderAdapter;
@@ -48,7 +51,12 @@ public class Owlkb
 
     logstring( "Loading ontology...");
 
-    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("/home/sarala/testkb/ricordo.owl"));  //Location of OWL file
+    OWLOntologyLoaderConfiguration config = new OWLOntologyLoaderConfiguration();         // If the main ontology imports an RDF fragment,
+    config.setMissingOntologyHeaderStrategy(OWLOntologyLoaderConfiguration.MissingOntologyHeaderStrategy.IMPORT_GRAPH);  // prevent that fragment from being saved into the ontology.
+
+    File kbfile = new File("/home/sarala/testkb/ricordo.owl"); //Location of OWL file
+
+    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbfile),config);
 
     logstring( "Ontology is loaded.");
 
@@ -357,9 +365,6 @@ public class Owlkb
 
       logstring( "New term added to ontology in RAM." );
 
-      /*
-       * Temporarily disable saving ontology to hard drive
-       *
       logstring( "Saving ontology to hard drive..." );
 
       try
@@ -372,8 +377,6 @@ public class Owlkb
       }
 
       logstring( "Finished saving ontology to hard drive." );
-       *
-       */
 
       logstring( "Precomputing inferences..." );
 
