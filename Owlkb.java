@@ -54,7 +54,7 @@ public class Owlkb
     OWLOntologyLoaderConfiguration config = new OWLOntologyLoaderConfiguration();         // If the main ontology imports an RDF fragment,
     config.setMissingOntologyHeaderStrategy(OWLOntologyLoaderConfiguration.MissingOntologyHeaderStrategy.IMPORT_GRAPH);  // prevent that fragment from being saved into the ontology.
 
-    File kbfile = new File("/home/sarala/testkb/ricordo.owl"); //Location of OWL file
+    File kbfile = new File("/home/sarala/testkb/ddmore.owl"); //Location of OWL file
 
     OWLOntology ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbfile),config);
 
@@ -121,6 +121,8 @@ public class Owlkb
     server.createContext("/subterms", new NetHandler("subterms", r, rname, manager, ont, entityChecker, kbNs, iri));
     server.createContext("/eqterms", new NetHandler("eqterms", r, rname, manager, ont, entityChecker, kbNs, iri));
     server.createContext("/terms", new NetHandler("terms", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/instances", new NetHandler("instances", r, rname, manager, ont, entityChecker, kbNs, iri));
+    //server.createContext("/label", new NetHandler("label", r, rname, manager, ont, entityChecker, kbNs, iri));
     server.createContext("/test", new NetHandler("test", r, rname, manager, ont, entityChecker, kbNs, iri));
 
     server.setExecutor(null);
@@ -198,6 +200,7 @@ public class Owlkb
         {
           if ( srvtype.equals("subterms")
           ||   srvtype.equals("eqterms")
+          ||   srvtype.equals("instances")
           ||   srvtype.equals("terms") )
           {
             ArrayList<Term> terms = null;
@@ -206,6 +209,8 @@ public class Owlkb
               terms = getSubTerms(exp,r);
             else if ( srvtype.equals("eqterms") )
               terms = addTerm(exp, r, rname, m, kbNs, o, iri);
+            else if ( srvtype.equals("instances") )
+              terms = getInstances(exp,r);
             else if ( srvtype.equals("terms") )
               terms = getTerms(exp,r);
 
@@ -293,7 +298,7 @@ public class Owlkb
   }
 
   /*
-   * The following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
+   * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
   private static ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r)
@@ -307,6 +312,20 @@ public class Owlkb
       {
         idList.add(new Term(owlClassNode.getEntities().iterator().next().toStringID()));
       }
+    }
+
+    return idList;
+  }
+
+  private static ArrayList<Term> getInstances(OWLClassExpression exp, OWLReasoner r)
+  {
+    ArrayList<Term> idList = new ArrayList<Term>();
+    NodeSet<OWLNamedIndividual> inst = r.getInstances(exp, false);
+
+    if (inst != null)
+    {
+      for (Node<OWLNamedIndividual> ind : inst)
+        idList.add(new Term(ind.getEntities().iterator().next().toStringID()));
     }
 
     return idList;
@@ -331,6 +350,19 @@ public class Owlkb
 
     return idList;
   }
+
+  /*
+  public static ArrayList<Term> getLabels(OWLClassExpression exp, OWLReasoner r, OWLOntology o)
+  {
+    Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
+    NodeList<OWLClass> classes = equivalentClasses.getChildNodes();
+
+    for ( int i=0; i < classes.getLength(); i++)
+    {
+      for ( OWLAnnotation annot : classes.item(i).getAnnotations(o, 
+    }
+  }
+  */
 
   public static ArrayList<Term> getTerms(OWLClassExpression exp, OWLReasoner r)
   {
