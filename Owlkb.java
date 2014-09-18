@@ -46,7 +46,7 @@ public class Owlkb
     /*
      * Load the main ontology
      */
-    String kbNs = "http://www.ricordo.eu/ricordo.owl";
+    String kbNs = "http://www.ricordo.eu/pato.owl";
     OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
 
     logstring( "Loading ontology...");
@@ -172,6 +172,9 @@ public class Owlkb
       String req = t.getRequestURI().toString().substring(2+srvtype.length());
       req = java.net.URLDecoder.decode(req, "UTF-8");
 
+      if ( check_for_non_EL( req, t ) )
+        return;
+
       ManchesterOWLSyntaxEditorParser parser = new ManchesterOWLSyntaxEditorParser(m.getOWLDataFactory(), req);
       parser.setDefaultOntology(o);
       parser.setOWLEntityChecker(ec);
@@ -277,6 +280,46 @@ public class Owlkb
 
       logstring( "Transmitting response..." );
 
+      send_response( t, response );
+
+      /*
+       * Measure computation time in ms.
+       */
+      long runtime = (System.nanoTime() - start_time) / 1000000;
+      logstring( "It took "+runtime+"ms to handle the request." );
+    }
+  }
+
+  static public boolean check_for_non_EL( String req, HttpExchange t )
+  {
+    /*
+     * To do: improve this function, which is currently just a bandaid
+     */
+    try
+    {
+      String lower = req.toLowerCase();
+
+      if ( lower.contains(" or ") )
+      {
+        send_response( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL." );
+        return true;
+      }
+      if ( lower.contains(" not ") || lower.substring(0,4).equals("not ") )
+      {
+        send_response( t, "Negation ('not') is forbidden because it would make the ontology non-EL." );
+        return true;
+      }
+
+      return false;
+    }
+    catch ( Exception e )
+    {
+      return false;
+    }
+  }
+
+  static public void send_response( HttpExchange t, String response ) throws IOException
+  {
       Headers h = t.getResponseHeaders();
       h.add("Cache-Control", "no-cache, no-store, must-revalidate");
       h.add("Pragma", "no-cache");
@@ -288,13 +331,6 @@ public class Owlkb
       os.close();
 
       logstring( "Response transmitted.");
-
-      /*
-       * Measure computation time in ms.
-       */
-      long runtime = (System.nanoTime() - start_time) / 1000000;
-      logstring( "It took "+runtime+"ms to handle the request." );
-    }
   }
 
   /*
