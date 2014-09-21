@@ -38,15 +38,34 @@ import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
 public class Owlkb
 {
   /*
+   * Variables to be specified by command-line argument.
+   */
+  public String rname;      // Reasoner name.  Default: "elk"
+  public boolean hd_save;   // Whether to save changes to harddrive.  Default: true
+  public String kbNs;       // Namespace for RICORDO_### terms.  "Default: http://www.ricordo.eu/pato.owl"
+  public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
+  public boolean help_only; // Whether to show helpscreen and exit.  Default: false
+
+  public static void main(String [] args) throws Exception
+  {
+    Owlkb owlkb = new Owlkb();
+    owlkb.run(args);
+  }
+
+ /*
    * Load the ontology and launch a server on port 20080 to serve
    * the owlkb API, as described at http://www.semitrivial.com/owlkb/api.php
    */
-  public static void main(String [] args) throws Exception
+  public void run(String [] args) throws Exception
   {
+    parse_commandline_arguments(this, args);
+
+    if ( help_only == true )
+      return;
+
     /*
      * Load the main ontology
      */
-    String kbNs = "http://www.ricordo.eu/pato.owl";
     OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
 
     logstring( "Loading ontology...");
@@ -54,9 +73,20 @@ public class Owlkb
     OWLOntologyLoaderConfiguration config = new OWLOntologyLoaderConfiguration();         // If the main ontology imports an RDF fragment,
     config.setMissingOntologyHeaderStrategy(OWLOntologyLoaderConfiguration.MissingOntologyHeaderStrategy.IMPORT_GRAPH);  // prevent that fragment from being saved into the ontology.
 
-    File kbfile = new File("/home/sarala/testkb/ricordo.owl"); //Location of OWL file
-
-    OWLOntology ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbfile),config);
+    File kbfile;
+    OWLOntology ont;
+    try
+    {
+      kbfile = new File(kbfilename);
+      ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbfile),config);
+    }
+    catch ( Exception e )
+    {
+      System.out.println( "Could not load file: "+kbfilename );
+      System.out.println( "To specify a different filename, run with -file <filename>" );
+      System.out.println( "Also, make sure java has permission to access the file." );
+      return;
+    }
 
     logstring( "Ontology is loaded.");
 
@@ -77,28 +107,17 @@ public class Owlkb
     /*
      * Initiate the reasoner
      */
-    logstring( "Establishing reasoner...");
+    logstring( "Establishing "+rname+" reasoner...");
 
     OWLReasoner r;
-    String rname;
 
-    if ( args.length==0 || args[0].toLowerCase().equals("elk") )
+    if ( rname.equals("elk") )
     {
       OWLReasonerFactory rf = new ElkReasonerFactory();
       r = rf.createReasoner(ont);
-      rname = "elk";
-    }
-    else if ( args[0].toLowerCase().equals("hermit") )
-    {
-      r = new Reasoner(ont);
-      rname = "hermit";
     }
     else
-    {
-      System.out.println("Unrecognized reasoner specified.  Valid reasoners are Elk and HermiT.");
-      System.out.println("");
-      return;
-    }
+      r = new Reasoner(ont);  //Hermit reasoner
 
     logstring( "Reasoner established.");
 
@@ -118,12 +137,12 @@ public class Owlkb
     logstring( "Initiating server...");
 
     HttpServer server = HttpServer.create(new InetSocketAddress(20080), 0 );
-    server.createContext("/subterms", new NetHandler("subterms", r, rname, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/eqterms", new NetHandler("eqterms", r, rname, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/terms", new NetHandler("terms", r, rname, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/instances", new NetHandler("instances", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
+    server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
     //server.createContext("/label", new NetHandler("label", r, rname, manager, ont, entityChecker, kbNs, iri));
-    server.createContext("/test", new NetHandler("test", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
 
     server.setExecutor(null);
     server.start();
@@ -137,24 +156,22 @@ public class Owlkb
 
   static class NetHandler implements HttpHandler
   {
+    Owlkb owlkb;
     String srvtype;
     OWLReasoner r;
-    String rname;
     OWLOntologyManager m;
     OWLOntology o;
     OWLEntityChecker ec;
-    String kbNs;
     IRI iri;
 
-    public NetHandler(String srvtype, OWLReasoner r, String rname, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, String kbNs, IRI iri)
+    public NetHandler(Owlkb owlkb, String srvtype, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, IRI iri)
     {
+      this.owlkb = owlkb;
       this.srvtype = srvtype;
       this.r = r;
-      this.rname = rname;
       this.m = m;
       this.o = o;
       this.ec = ec;
-      this.kbNs = kbNs;
       this.iri = iri;
     }
 
@@ -211,7 +228,7 @@ public class Owlkb
             if ( srvtype.equals("subterms") )
               terms = getSubTerms(exp,r);
             else if ( srvtype.equals("eqterms") )
-              terms = addTerm(exp, r, rname, m, kbNs, o, iri);
+              terms = addTerm(exp, r, m, o, iri, owlkb);
             else if ( srvtype.equals("instances") )
               terms = getInstances(exp,r);
             else if ( srvtype.equals("terms") )
@@ -225,7 +242,7 @@ public class Owlkb
 
             try
             {
-              terms = addTerm(exp, r, rname, m, kbNs, o, iri);
+              terms = addTerm(exp, r, m, o, iri, owlkb);
             }
             catch(Exception e)
             {
@@ -410,7 +427,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, String rname, OWLOntologyManager mgr, String kbNs, OWLOntology ont, IRI iri)
+  public static ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, Owlkb owlkb)
   {
     logstring( "addTerm called..." );
 
@@ -420,7 +437,7 @@ public class Owlkb
       logstring( "Term is new, adding it..." );
 
       String ricordoid = String.valueOf(System.currentTimeMillis());
-      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(kbNs + "#RICORDO_" + ricordoid));
+      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(owlkb.kbNs + "#RICORDO_" + ricordoid));
 
       OWLAxiom axiom = mgr.getOWLDataFactory().getOWLEquivalentClassesAxiom(newowlclass, exp);
       Set<OWLAxiom> axiomSet = new HashSet<OWLAxiom>();
@@ -428,23 +445,28 @@ public class Owlkb
 
       mgr.addAxioms(ont,axiomSet);
 
-      if ( rname == "elk" )
+      if ( owlkb.rname == "elk" )
         r.flush();
 
       logstring( "New term added to ontology in RAM." );
 
-      logstring( "Saving ontology to hard drive..." );
-
-      try
+      if ( owlkb.hd_save == true )
       {
-        mgr.saveOntology(ont,iri);
-      }
-      catch ( OWLOntologyStorageException e )
-      {
-        e.printStackTrace(); //To do: proper error handling here
-      }
+        logstring( "Saving ontology to hard drive..." );
 
-      logstring( "Finished saving ontology to hard drive." );
+        try
+        {
+          mgr.saveOntology(ont,iri);
+        }
+        catch ( OWLOntologyStorageException e )
+        {
+          e.printStackTrace(); //To do: proper error handling here
+        }
+
+        logstring( "Finished saving ontology to hard drive." );
+      }
+      else
+        logstring( "Skipping writing to hard drive (disabled by commandline argument)." );
 
       logstring( "Precomputing inferences..." );
 
@@ -533,6 +555,121 @@ public class Owlkb
     public void setId(String id)
     {
         this.id = id;
+    }
+  }
+
+  public void parse_commandline_arguments( Owlkb o, String [] args )
+  {
+    o.rname = "elk";
+    o.hd_save = true;
+    o.kbNs = "http://www.ricordo.eu/pato.owl";
+    o.kbfilename = "/home/sarala/testkb/ricordo.owl";
+    o.help_only = false;
+
+    int i;
+    String flag;
+
+    for ( i = 0; i < args.length; i++ )
+    {
+      if ( args[i].length() > 2 && args[i].substring(0,2).equals("--") )
+        flag = args[i].substring(2).toLowerCase();
+      else if ( args[i].length() > 1 && args[i].substring(0,1).equals("-") )
+        flag = args[i].substring(1).toLowerCase();
+      else
+        flag = args[i].toLowerCase();
+
+      if ( flag.equals("help") || flag.equals("h") )
+      {
+        System.out.println( "Command line options are as follows:"         );
+        System.out.println( "------------------------------------"         );
+        System.out.println( "-file <path to file>"                         );
+        System.out.println( "(Specifies which ontology file to use)"       );
+        System.out.println( "------------------------------------"         );
+        System.out.println( "-reasoner elk, or -reasoner hermit"           );
+        System.out.println( "(Specifies which reasoner to use)"            );
+        System.out.println( "(Default: elk)"                               );
+        System.out.println( "------------------------------------"         );
+        System.out.println( "-namespace <iri>"                             );
+        System.out.println( "(Specifies namespace for ontology)"           );
+        System.out.println( "(Default: http://www.ricordo.eu/ricordo.owl)" );
+        System.out.println( "------------------------------------"         );
+        System.out.println( "-save true, or -save false"                   );
+        System.out.println( "(Specifies whether owlfile changes are saved)");
+        System.out.println( "(Default: true)"                              );
+        System.out.println( "------------------------------------"         );
+        System.out.println( "-help"                                        );
+        System.out.println( "(Displays this helpfile)"                     );
+        System.out.println( "" );
+        o.help_only = true;
+        return;
+      }
+
+      if ( flag.equals("rname") || flag.equals("reasoner") )
+      {
+        if ( i+1 < args.length && (args[i+1].equals("elk") || args[i+1].equals("hermit")) )
+        {
+          o.rname = args[++i];
+          System.out.println( "Using "+o.rname+" as reasoner" );
+        }
+        else
+        {
+          System.out.println( "Valid reasoners are: ELK, HermiT" );
+          o.help_only = true;
+          return;
+        }
+      }
+      else if ( flag.equals("hd") || flag.equals("hd_save") || flag.equals("save") )
+      {
+        if ( i+1 < args.length && (args[i+1].equals("t") || args[i+1].equals("true")) )
+          o.hd_save = true;
+        else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
+        {
+          o.hd_save = false;
+          System.out.println( "Saving changes to hard drive: disabled." );
+        }
+        else
+        {
+          System.out.println( "hd_save can be set to: true, false" );
+          o.help_only = true;
+          return;
+        }
+        i++;
+      }
+      else if (flag.equals("kbns") || flag.equals("ns") || flag.equals("namespace") )
+      {
+        if ( i+1 < args.length )
+        {
+          System.out.println( "Using "+args[i+1]+" as ontology namespace." );
+          o.kbNs = args[++i];
+        }
+        else
+        {
+          System.out.println( "What do you want the ontology's namespace to be?" );
+          o.help_only = true;
+          return;
+        }
+      }
+      else if ( flag.equals("kbfilename") || flag.equals("filename") || flag.equals("kbfile") || flag.equals("file") || flag.equals("kb") )
+      {
+        if ( i+1 < args.length )
+        {
+          System.out.println( "Using "+args[i+1]+" as ontology filename." );
+          o.kbfilename = args[++i];
+        }
+        else
+        {
+          System.out.println( "Specify the filename of the ontology." );
+          o.help_only = true;
+          return;
+        }
+      }
+      else
+      {
+        System.out.println( "Unrecognized command line argument: "+args[i] );
+        System.out.println( "For help, run with HELP as command line argument." );
+        o.help_only = true;
+        return;
+      }
     }
   }
 }
