@@ -14,11 +14,10 @@ INSTALLATION
 1. Ensure a java compiler and runtime engine are installed.
 2. "git clone" the project into whatever working directory you like.  Work in this directory for subsequent steps.
 3. Use "jar -xf dep.jar" to expand Owlkb's dependencies.
-4. Edit Owlkb.java and change the location of the ontology file
-   (you can search for "Location of OWL file" to find the line in question)
-5. Use "make" to invoke the Makefile and compile Owlkb.  Alternately, compile manually with "javac -g Owlkb.java".
-6. Owlkb is now installed.  In order to run it, from the working directory chosen in step 2, type "java Owlkb".
-   It is left up to the user to make it persistent (e.g. with crontab, etc.)
+4. Use "make" to invoke the Makefile and compile Owlkb.  Alternately, compile manually with "javac -g Owlkb.java".
+5. Owlkb is now installed.  In order to run it, from the working directory chosen in step 2, type:
+   "java Owlkb -file <path to ontology file>"
+   Or, type "java Owlkb -help" for help on all the command-line options.
 
 This repository doesn't include any GUI or anything.  One way to test the install is to query via command line.
 For example, if your ontology contains terms EXAMPLE_00015, EXAMPLE_00020, and relations inheres-in and part-of,
