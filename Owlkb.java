@@ -42,7 +42,7 @@ public class Owlkb
    */
   public String rname;      // Reasoner name.  Default: "elk"
   public boolean hd_save;   // Whether to save changes to harddrive.  Default: true
-  public String kbNs;       // Namespace for RICORDO_### terms.  "Default: http://www.ricordo.eu/pato.owl"
+  public String kbNs;       // Namespace for RICORDO_### terms.  Default: "http://www.ricordo.eu/ricordo.owl"
   public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
   public boolean help_only; // Whether to show helpscreen and exit.  Default: false
 
