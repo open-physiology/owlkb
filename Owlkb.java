@@ -14,6 +14,9 @@ import java.io.*;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.semanticweb.HermiT.Reasoner;
 import org.semanticweb.elk.owlapi.ElkReasonerFactory;
@@ -32,6 +35,8 @@ import org.coode.owlapi.manchesterowlsyntax.ManchesterOWLSyntaxEditorParser;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProvider;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProviderAdapter;
 import org.semanticweb.owlapi.util.SimpleShortFormProvider;
+import org.semanticweb.owlapi.util.AnnotationValueShortFormProvider;
+import org.semanticweb.owlapi.util.OWLOntologyImportsClosureSetProvider;
 import org.semanticweb.owlapi.expression.OWLEntityChecker;
 import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
 
@@ -51,6 +56,8 @@ public class Owlkb
    */
   OWLDataFactory df;
   BidirectionalShortFormProvider shorts;
+  BidirectionalShortFormProviderAdapter annovider;
+  OWLOntologyImportsClosureSetProvider ontset;
 
   public static void main(String [] args) throws Exception
   {
@@ -102,6 +109,7 @@ public class Owlkb
      * Load the ontologies imported by the main ontology (e.g., the reference ontologies)
      */
     Set<OWLOntology> imp_closure = ont.getImportsClosure();
+    ontset = new OWLOntologyImportsClosureSetProvider(manager, ont);
 
     /*
      * Establish infrastructure for converting long URLs to short IRIs and vice versa
@@ -109,6 +117,15 @@ public class Owlkb
      */
     shorts = new BidirectionalShortFormProviderAdapter(manager, imp_closure, new SimpleShortFormProvider());
     OWLEntityChecker entityChecker = new ShortFormEntityChecker(shorts);
+
+    /*
+     * Infrastructure for searching for classes by label
+     */
+    List<OWLAnnotationProperty> labeltype_list = new ArrayList<OWLAnnotationProperty>();
+    labeltype_list.add(df.getRDFSLabel());
+    Map<OWLAnnotationProperty,List<String>> emptymap = new HashMap<OWLAnnotationProperty,List<String>>();
+    AnnotationValueShortFormProvider pre_annovider = new AnnotationValueShortFormProvider(labeltype_list, emptymap, ontset );
+    annovider = new BidirectionalShortFormProviderAdapter(manager, imp_closure, pre_annovider);
 
     /*
      * Initiate the reasoner
@@ -148,6 +165,7 @@ public class Owlkb
     server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
     server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
     server.createContext("/labels", new NetHandler(this, "labels", r, manager, ont, entityChecker, iri));
+    server.createContext("/search", new NetHandler(this, "search", r, manager, ont, entityChecker, iri));
     server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
 
     server.setExecutor(null);
@@ -203,12 +221,11 @@ public class Owlkb
       logstring( "Got request: ["+req+"]" );
       long start_time = System.nanoTime();
 
-      if ( srvtype.equals("labels") )
+      if ( srvtype.equals("labels") || srvtype.equals("search") )
       {
-        ArrayList<Term> terms = getLabels( req, o, owlkb );
-
-        if ( terms == null )
-          response = "No class by that shortform.";
+        ArrayList<Term> terms = (srvtype.equals("labels") ? getLabels( req, o, owlkb ) : SearchByLabel( req, o, owlkb ));
+        if ( terms == null || terms.isEmpty() )
+          response = (srvtype.equals("labels") ? "No class by that shortform." : "No class with that label.");
         else
           response = compute_response( terms, fJson );
       }
@@ -435,6 +452,25 @@ public class Owlkb
     {
       if ( a.getValue() instanceof OWLLiteral )
         idList.add( new Term(((OWLLiteral)a.getValue()).getLiteral()) );
+    }
+
+    return idList;
+  }
+
+  public static ArrayList<Term> SearchByLabel(String label, OWLOntology o, Owlkb owlkb)
+  {
+    Set<OWLEntity> ents = owlkb.annovider.getEntities(label);
+    ArrayList<Term> idList = new ArrayList<Term>();
+
+    if ( ents == null || ents.isEmpty()==true )
+      return null;
+
+    for ( OWLEntity e : ents )
+    {
+      if ( e.isOWLClass() == false || e.asOWLClass().isAnonymous() == true )
+        continue;
+
+      idList.add( new Term(owlkb.shorts.getShortForm(e)) );
     }
 
     return idList;
