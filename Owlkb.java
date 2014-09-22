@@ -46,6 +46,12 @@ public class Owlkb
   public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
   public boolean help_only; // Whether to show helpscreen and exit.  Default: false
 
+  /*
+   * Variables to be initialized elsewhere than the command-line
+   */
+  OWLDataFactory df;
+  BidirectionalShortFormProvider shorts;
+
   public static void main(String [] args) throws Exception
   {
     Owlkb owlkb = new Owlkb();
@@ -58,7 +64,7 @@ public class Owlkb
    */
   public void run(String [] args) throws Exception
   {
-    parse_commandline_arguments(this, args);
+    init_owlkb(this,args);
 
     if ( help_only == true )
       return;
@@ -101,7 +107,7 @@ public class Owlkb
      * Establish infrastructure for converting long URLs to short IRIs and vice versa
      * (e.g., converting between "http://purl.org/obo/owlapi/quality#PATO_0000014" and "PATO_0000014")
      */
-    BidirectionalShortFormProvider shorts = new BidirectionalShortFormProviderAdapter(manager, imp_closure, new SimpleShortFormProvider());
+    shorts = new BidirectionalShortFormProviderAdapter(manager, imp_closure, new SimpleShortFormProvider());
     OWLEntityChecker entityChecker = new ShortFormEntityChecker(shorts);
 
     /*
@@ -141,7 +147,7 @@ public class Owlkb
     server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
     server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
     server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
-    //server.createContext("/label", new NetHandler("label", r, rname, manager, ont, entityChecker, kbNs, iri));
+    server.createContext("/labels", new NetHandler(this, "labels", r, manager, ont, entityChecker, iri));
     server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
 
     server.setExecutor(null);
@@ -192,16 +198,27 @@ public class Owlkb
       if ( check_for_non_EL( req, t ) )
         return;
 
-      ManchesterOWLSyntaxEditorParser parser = new ManchesterOWLSyntaxEditorParser(m.getOWLDataFactory(), req);
-      parser.setDefaultOntology(o);
-      parser.setOWLEntityChecker(ec);
+      ManchesterOWLSyntaxEditorParser parser; // = new ManchesterOWLSyntaxEditorParser(m.getOWLDataFactory(), req);
 
       logstring( "Got request: ["+req+"]" );
       long start_time = System.nanoTime();
 
+      if ( srvtype.equals("labels") )
+      {
+        ArrayList<Term> terms = getLabels( req, o, owlkb );
+
+        if ( terms == null )
+          response = "No class by that shortform.";
+        else
+          response = compute_response( terms, fJson );
+      }
+      else
       try
       {
         OWLClassExpression exp;
+        parser = new ManchesterOWLSyntaxEditorParser(owlkb.df, req);
+        parser.setDefaultOntology(o);
+        parser.setOWLEntityChecker(ec);
 
         try
         {
@@ -404,18 +421,24 @@ public class Owlkb
     return idList;
   }
 
-  /*
-  public static ArrayList<Term> getLabels(OWLClassExpression exp, OWLReasoner r, OWLOntology o)
+  public static ArrayList<Term> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
   {
-    Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
-    NodeList<OWLClass> classes = equivalentClasses.getChildNodes();
+    OWLEntity e = owlkb.shorts.getEntity(shortform);
+    ArrayList<Term> idList = new ArrayList<Term>();
 
-    for ( int i=0; i < classes.getLength(); i++)
+    if ( e == null || e.isOWLClass() == false )
+      return null;
+
+    Set<OWLAnnotation> annots = e.getAnnotations(o, owlkb.df.getRDFSLabel() );
+
+    for ( OWLAnnotation a : annots )
     {
-      for ( OWLAnnotation annot : classes.item(i).getAnnotations(o, 
+      if ( a.getValue() instanceof OWLLiteral )
+        idList.add( new Term(((OWLLiteral)a.getValue()).getLiteral()) );
     }
+
+    return idList;
   }
-  */
 
   public static ArrayList<Term> getTerms(OWLClassExpression exp, OWLReasoner r)
   {
@@ -556,6 +579,12 @@ public class Owlkb
     {
         this.id = id;
     }
+  }
+
+  public void init_owlkb( Owlkb o, String [] args )
+  {
+    parse_commandline_arguments(this, args);
+    o.df = OWLManager.getOWLDataFactory();
   }
 
   public void parse_commandline_arguments( Owlkb o, String [] args )
