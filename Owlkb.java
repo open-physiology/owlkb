@@ -562,7 +562,7 @@ public class Owlkb
   {
     o.rname = "elk";
     o.hd_save = true;
-    o.kbNs = "http://www.ricordo.eu/pato.owl";
+    o.kbNs = "http://www.ricordo.eu/ricordo.owl";
     o.kbfilename = "/home/sarala/testkb/ricordo.owl";
     o.help_only = false;
 
