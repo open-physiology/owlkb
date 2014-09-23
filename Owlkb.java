@@ -50,6 +50,7 @@ public class Owlkb
   public String kbNs;       // Namespace for RICORDO_### terms.  Default: "http://www.ricordo.eu/ricordo.owl"
   public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
   public boolean help_only; // Whether to show helpscreen and exit.  Default: false
+  public int port;          // Port number to listen on.  Default: 20080
 
   /*
    * Variables to be initialized elsewhere than the command-line
@@ -66,7 +67,7 @@ public class Owlkb
   }
 
  /*
-   * Load the ontology and launch a server on port 20080 to serve
+   * Load the ontology and launch a server on user-specified port (default 20080) to serve
    * the owlkb API, as described at http://www.semitrivial.com/owlkb/api.php
    */
   public void run(String [] args) throws Exception
@@ -159,7 +160,7 @@ public class Owlkb
      */
     logstring( "Initiating server...");
 
-    HttpServer server = HttpServer.create(new InetSocketAddress(20080), 0 );
+    HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
     server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
@@ -630,6 +631,7 @@ public class Owlkb
     o.kbNs = "http://www.ricordo.eu/ricordo.owl";
     o.kbfilename = "/home/sarala/testkb/ricordo.owl";
     o.help_only = false;
+    o.port = 20080;
 
     int i;
     String flag;
@@ -650,6 +652,10 @@ public class Owlkb
         System.out.println( "-file <path to file>"                         );
         System.out.println( "(Specifies which ontology file to use)"       );
         System.out.println( "------------------------------------"         );
+        System.out.println( "-port <number>"                               );
+        System.out.println( "(Specified which port the server runs on)"    );
+        System.out.println( "(Default: 20080)"                             );
+        System.out.println( "------------------------------------"         );
         System.out.println( "-reasoner elk, or -reasoner hermit"           );
         System.out.println( "(Specifies which reasoner to use)"            );
         System.out.println( "(Default: elk)"                               );
@@ -669,7 +675,30 @@ public class Owlkb
         return;
       }
 
-      if ( flag.equals("rname") || flag.equals("reasoner") )
+      if ( flag.equals("port") || flag.equals("p") )
+      {
+        if ( i+1 < args.length )
+        {
+          try
+          {
+            o.port = Integer.parseInt(args[i+1]);
+          }
+          catch( Exception e )
+          {
+            System.out.println( "Port must be a number." );
+            o.help_only = true;
+            return;
+          }
+          System.out.println( "Owlkb will listen on port "+args[++i] );
+        }
+        else
+        {
+          System.out.println( "Which port do you want the server to listen on?" );
+          o.help_only = true;
+          return;
+        }
+      }
+      else if ( flag.equals("rname") || flag.equals("reasoner") )
       {
         if ( i+1 < args.length && (args[i+1].equals("elk") || args[i+1].equals("hermit")) )
         {
