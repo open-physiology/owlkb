@@ -449,6 +449,9 @@ public class Owlkb
 
     Set<OWLAnnotation> annots = e.getAnnotations(o, owlkb.df.getRDFSLabel() );
 
+    if ( annots.isEmpty() )
+      idList.add( new Term("(Unlabeled class)") );
+    else
     for ( OWLAnnotation a : annots )
     {
       if ( a.getValue() instanceof OWLLiteral )
