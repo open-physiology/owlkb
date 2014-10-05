@@ -1,3 +1,5 @@
+For more in-depth documentation: http://www.semitrivial.com/owlkb/doc.php
+
 Owlkb is a server that loads a knowledgebase, in the form of an OWL ontology,
 and handles queries, in Manchester syntax, via an API.  In case a class does not already
 exist that is equivalent to the query results, Owlkb will add a so-called "composite" term

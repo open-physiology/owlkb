@@ -450,7 +450,7 @@ public class Owlkb
     Set<OWLAnnotation> annots = e.getAnnotations(o, owlkb.df.getRDFSLabel() );
 
     if ( annots.isEmpty() )
-      idList.add( new Term("(Unlabeled class)") );
+      idList.add( new Term("(Unlabeled class)") );   //To do: create "advanced commandline options" one of which chooses Queen's vs. American English
     else
     for ( OWLAnnotation a : annots )
     {
