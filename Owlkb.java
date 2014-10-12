@@ -17,6 +17,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.TimerTask;
+import java.util.Timer;
+import java.util.Scanner;
 
 import org.semanticweb.HermiT.Reasoner;
 import org.semanticweb.elk.owlapi.ElkReasonerFactory;
@@ -169,14 +172,18 @@ public class Owlkb
     server.createContext("/search", new NetHandler(this, "search", r, manager, ont, entityChecker, iri));
     server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
 
+    server.createContext("/gui", new NetHandler(this, "gui", r, manager, ont, entityChecker, iri));
+
     server.setExecutor(null);
     server.start();
 
     logstring( "Server initiated.");
 
     /*
-     * The program will now go dormant, waking up when it hears API requests
+     * Initiate timer for realtime update API
      */
+    Timer tmr = new Timer();
+    tmr.schedule( new realtime_updater(), 1000, 500 );
   }
 
   static class NetHandler implements HttpHandler
@@ -202,6 +209,12 @@ public class Owlkb
 
     public void handle(HttpExchange t) throws IOException
     {
+      if ( srvtype.equals("gui") )
+      {
+        send_gui(t);
+        return;
+      }
+
       Headers requestHeaders = t.getRequestHeaders();
       int fJson;
       if ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") )
@@ -767,6 +780,46 @@ public class Owlkb
         o.help_only = true;
         return;
       }
+    }
+  }
+
+  class realtime_updater extends TimerTask
+  {
+    public void run()
+    {
+      /*
+       * Maintain list of class expressions that people are monitoring realtime.
+       * Maintain list of newly added classes.
+       * Periodically check the latter against the former, but limit how much time
+       * to do so in one go.
+       */
+    }
+  }
+
+  public static void send_gui(HttpExchange t)
+  {
+    String the_html, the_js;
+
+    try
+    {
+      try
+      {
+        the_html = new Scanner(new File("gui.php")).useDelimiter("\\A").next();
+        the_js = new Scanner(new File("gui.js")).useDelimiter("\\A").next();
+      }
+      catch(Exception e)
+      {
+        send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file." );
+        return;
+      }
+
+      the_html = the_html.replace("@JAVASCRIPT", "<script type='text/javascript'>"+the_js+"</script>");
+
+      send_response( t, the_html );
+    }
+    catch(Exception e)
+    {
+      ;
     }
   }
 }
