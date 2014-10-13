@@ -165,6 +165,7 @@ public class Owlkb
 
     HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/rtsubterms", new NetHandler(this, "rtsubterms", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
     server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
     server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
@@ -283,6 +284,10 @@ public class Owlkb
               terms = getTerms(exp,r);
 
             response = compute_response( terms, fJson );
+          }
+          else if ( srvtype.equals("rtsubterms") )
+          {
+            response = compute_rtsubterms_response( exp, r, fJson );
           }
           else if ( srvtype.equals("test") )
           {
@@ -606,6 +611,13 @@ public class Owlkb
     }
 
     return x;
+  }
+
+  public static String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
+  {
+    ArrayList<Term> terms = getSubTerms( exp, r );
+
+    return "Not yet implemented"; // Bookmark
   }
 
   /*
