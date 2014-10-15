@@ -1,5 +1,5 @@
 /*
- * Owlkb, part of RICORDO.
+ * Owlkb 2.0, part of RICORDO.
  * On the web: http://open-physiology.org
  * Programmed by Sarala Wimaralatne, reprogrammed by Sam Alexander.
  *
@@ -56,6 +56,7 @@ import org.semanticweb.owlapi.util.AnnotationValueShortFormProvider;
 import org.semanticweb.owlapi.util.OWLOntologyImportsClosureSetProvider;
 import org.semanticweb.owlapi.expression.OWLEntityChecker;
 import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
+import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
 
 public class Owlkb
 {
@@ -181,6 +182,7 @@ public class Owlkb
     server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
     server.createContext("/rtsubterms", new NetHandler(this, "rtsubterms", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/addlabel", new NetHandler(this, "addlabel", r, manager, ont, entityChecker, iri));
     server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
     server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
     server.createContext("/labels", new NetHandler(this, "labels", r, manager, ont, entityChecker, iri));
@@ -257,6 +259,11 @@ public class Owlkb
           response = (srvtype.equals("labels") ? "No class by that shortform." : "No class with that label.");
         else
           response = compute_response( terms, fJson );
+      }
+      else
+      if ( srvtype.equals("addlabel") )
+      {
+        response = compute_addlabel_response( owlkb, o, iri, m, req, fJson );
       }
       else
       try
@@ -545,23 +552,7 @@ public class Owlkb
 
       logstring( "New term added to ontology in RAM." );
 
-      if ( owlkb.hd_save == true )
-      {
-        logstring( "Saving ontology to hard drive..." );
-
-        try
-        {
-          mgr.saveOntology(ont,iri);
-        }
-        catch ( OWLOntologyStorageException e )
-        {
-          e.printStackTrace(); //To do: proper error handling here
-        }
-
-        logstring( "Finished saving ontology to hard drive." );
-      }
-      else
-        logstring( "Skipping writing to hard drive (disabled by commandline argument)." );
+      maybe_save_ontology( owlkb, ont, iri, mgr );
 
       logstring( "Precomputing inferences..." );
 
@@ -847,5 +838,115 @@ public class Owlkb
     {
       ;
     }
+  }
+
+  public static String compute_addlabel_response( Owlkb owlkb, OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, int fJson )
+  {
+    int eqpos = req.indexOf('=');
+
+    if ( eqpos == -1 || eqpos == 0 )
+    {
+      if ( fJson == 1 )
+        return "{'syntax error'}";
+      else
+        return "Invalid syntax.  Syntax: /addlabel/iri=label, e.g.: /addlabel/RICORDO_123=volume of blood";
+    }
+
+    String iri = req.substring(0,eqpos);
+    String label = req.substring(eqpos+1);
+
+    if ( iri.length() < "RICORDO_".length() || !iri.substring(0,"RICORDO_".length()).equals("RICORDO_") )
+    {
+      if ( fJson == 1 )
+        return "{'non-ricordo class error'}";
+      else
+        return "Only RICORDO classes can have labels added to them through OWLKB.";
+    }
+
+    if ( label.trim().equals("") )
+    {
+      if ( fJson == 1 )
+        return "{'blank label error'}";
+      else
+        return "Blank labels are not allowed.";
+    }
+
+    OWLEntity e = owlkb.shorts.getEntity(iri);
+    ArrayList<Term> idList = new ArrayList<Term>();
+
+    if ( e == null || e.isOWLClass() == false )
+    {
+      if ( fJson == 1 )
+        return "{'class not found error'}";
+      else
+        return "The specified class could not be found.  Please make sure you're using the shortform of the iri, e.g., RICORDO_123 instead of http://website.com/RICORDO_123";
+    }
+
+    Set<OWLAnnotation> annots = e.getAnnotations(o, owlkb.df.getRDFSLabel() );
+
+    if ( !annots.isEmpty() )
+    {
+      for ( OWLAnnotation a : annots )
+      {
+        if ( a.getValue() instanceof OWLLiteral )
+        {
+          if ( ((OWLLiteral)a.getValue()).getLiteral().equals(label) )
+            return (fJson == 1) ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
+        }
+      }
+    }
+
+    OWLAnnotation a = owlkb.df.getOWLAnnotation( owlkb.df.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_LABEL.getIRI()), owlkb.df.getOWLLiteral(label) );
+    OWLAxiom axiom = owlkb.df.getOWLAnnotationAssertionAxiom(e.asOWLClass().getIRI(), a);
+    m.applyChange(new AddAxiom( o, axiom ));
+    logstring( "Added rdfs:label "+label+" to class "+iri+"." );
+
+    maybe_save_ontology( owlkb, o, ontology_iri, m );
+
+    return (fJson == 1) ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
+  }
+
+  public static void maybe_save_ontology( Owlkb owlkb, OWLOntology ont, IRI iri, OWLOntologyManager m )
+  {
+    if ( owlkb.hd_save == true )
+    {
+      logstring( "Saving ontology to hard drive..." );
+
+      try
+      {
+        m.saveOntology(ont,iri);
+      }
+      catch ( OWLOntologyStorageException e )
+      {
+        e.printStackTrace(); //To do: proper error handling here
+      }
+
+      logstring( "Finished saving ontology to hard drive." );
+    }
+    else
+      logstring( "Skipping writing to hard drive (disabled by commandline argument)." );
+  }
+
+  /*
+   * escapeHTML taken from Bruno Eberhard at stackoverflow
+   */
+  public static String escapeHTML(String s)
+  {
+    StringBuilder out = new StringBuilder(Math.max(16, s.length()));
+
+    for (int i = 0; i < s.length(); i++)
+    {
+      char c = s.charAt(i);
+
+      if (c > 127 || c == '"' || c == '<' || c == '>' || c == '&')
+      {
+        out.append("&#");
+        out.append((int) c);
+        out.append(';');
+      }
+      else
+        out.append(c);
+    }
+    return out.toString();
   }
 }
