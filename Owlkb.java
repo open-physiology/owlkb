@@ -187,6 +187,7 @@ public class Owlkb
     server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
     server.createContext("/labels", new NetHandler(this, "labels", r, manager, ont, entityChecker, iri));
     server.createContext("/search", new NetHandler(this, "search", r, manager, ont, entityChecker, iri));
+    server.createContext("/rdfstore", new NetHandler(this, "rdfstore", r, manager, ont, entityChecker, iri));
     server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
 
     server.createContext("/gui", new NetHandler(this, "gui", r, manager, ont, entityChecker, iri));
@@ -203,7 +204,7 @@ public class Owlkb
     tmr.schedule( new realtime_updater(), 1000, 500 );
   }
 
-  static class NetHandler implements HttpHandler
+  class NetHandler implements HttpHandler
   {
     Owlkb owlkb;
     String srvtype;
@@ -232,6 +233,8 @@ public class Owlkb
         return;
       }
 
+System.out.println( "Debug: "+srvtype );
+
       Headers requestHeaders = t.getRequestHeaders();
       int fJson;
       if ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") )
@@ -246,8 +249,6 @@ public class Owlkb
 
       if ( check_for_non_EL( req, t ) )
         return;
-
-      ManchesterOWLSyntaxEditorParser parser; // = new ManchesterOWLSyntaxEditorParser(m.getOWLDataFactory(), req);
 
       logstring( "Got request: ["+req+"]" );
       long start_time = System.nanoTime();
@@ -266,21 +267,14 @@ public class Owlkb
         response = compute_addlabel_response( owlkb, o, iri, m, req, fJson );
       }
       else
+      if ( srvtype.equals("rdfstore") )
+      {
+        response = compute_rdfstore_response( owlkb, o, iri, m, ec, r, req );
+      }
+      else
       try
       {
-        OWLClassExpression exp;
-        parser = new ManchesterOWLSyntaxEditorParser(owlkb.df, req);
-        parser.setDefaultOntology(o);
-        parser.setOWLEntityChecker(ec);
-
-        try
-        {
-          exp = parser.parseClassExpression();
-        }
-        catch (Exception e)
-        {
-          exp = null;
-        }
+        OWLClassExpression exp = parse_manchester( req, o, ec );
 
         if ( exp == null )
         {
@@ -381,7 +375,7 @@ public class Owlkb
     }
   }
 
-  static public boolean check_for_non_EL( String req, HttpExchange t )
+  public boolean check_for_non_EL( String req, HttpExchange t )
   {
     /*
      * To do: improve this function, which is currently just a bandaid
@@ -409,7 +403,7 @@ public class Owlkb
     }
   }
 
-  static public void send_response( HttpExchange t, String response ) throws IOException
+  public void send_response( HttpExchange t, String response ) throws IOException
   {
       Headers h = t.getResponseHeaders();
       h.add("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -428,7 +422,7 @@ public class Owlkb
    * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
-  private static ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, false);
@@ -444,7 +438,7 @@ public class Owlkb
     return idList;
   }
 
-  private static ArrayList<Term> getInstances(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<Term> getInstances(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
     NodeSet<OWLNamedIndividual> inst = r.getInstances(exp, false);
@@ -458,7 +452,7 @@ public class Owlkb
     return idList;
   }
 
-  private static ArrayList<Term> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<Term> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
     Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
@@ -478,7 +472,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
+  public ArrayList<Term> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
   {
     OWLEntity e = owlkb.shorts.getEntity(shortform);
     ArrayList<Term> idList = new ArrayList<Term>();
@@ -500,7 +494,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> SearchByLabel(String label, OWLOntology o, Owlkb owlkb)
+  public ArrayList<Term> SearchByLabel(String label, OWLOntology o, Owlkb owlkb)
   {
     Set<OWLEntity> ents = owlkb.annovider.getEntities(label);
     ArrayList<Term> idList = new ArrayList<Term>();
@@ -519,7 +513,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> getTerms(OWLClassExpression exp, OWLReasoner r)
+  public ArrayList<Term> getTerms(OWLClassExpression exp, OWLReasoner r)
   {
     ArrayList<Term> idList = new ArrayList<Term>();
 
@@ -529,7 +523,7 @@ public class Owlkb
     return idList;
   }
 
-  public static ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, Owlkb owlkb)
+  public ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, Owlkb owlkb)
   {
     logstring( "addTerm called..." );
 
@@ -584,7 +578,7 @@ public class Owlkb
     System.out.println( x );
   }
 
-  public static String compute_response( ArrayList<Term> terms, int fJson )
+  public String compute_response( ArrayList<Term> terms, int fJson )
   {
     String x;
 
@@ -618,18 +612,18 @@ public class Owlkb
     return x;
   }
 
-  public static String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
+  public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
   {
     ArrayList<Term> terms = getSubTerms( exp, r );
 
-    return "Not yet implemented"; // Bookmark
+    return "Not yet implemented";
   }
 
   /*
    * The following Term class was written by Sarala W.
    * (To do: root it out and replace it by String)
    */
-  static class Term
+  class Term
   {
     private String id;
 
@@ -813,7 +807,7 @@ public class Owlkb
     }
   }
 
-  public static void send_gui(HttpExchange t)
+  public void send_gui(HttpExchange t)
   {
     String the_html, the_js;
 
@@ -840,7 +834,7 @@ public class Owlkb
     }
   }
 
-  public static String compute_addlabel_response( Owlkb owlkb, OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, int fJson )
+  public String compute_addlabel_response( Owlkb owlkb, OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, int fJson )
   {
     int eqpos = req.indexOf('=');
 
@@ -906,7 +900,7 @@ public class Owlkb
     return (fJson == 1) ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
   }
 
-  public static void maybe_save_ontology( Owlkb owlkb, OWLOntology ont, IRI iri, OWLOntologyManager m )
+  public void maybe_save_ontology( Owlkb owlkb, OWLOntology ont, IRI iri, OWLOntologyManager m )
   {
     if ( owlkb.hd_save == true )
     {
@@ -925,6 +919,46 @@ public class Owlkb
     }
     else
       logstring( "Skipping writing to hard drive (disabled by commandline argument)." );
+  }
+
+  public OWLClassExpression parse_manchester( String manchester, OWLOntology o, OWLEntityChecker ec )
+  {
+    ManchesterOWLSyntaxEditorParser parser;
+    OWLClassExpression exp;
+
+    parser = new ManchesterOWLSyntaxEditorParser(df, manchester);
+    parser.setDefaultOntology(o);
+    parser.setOWLEntityChecker(ec);
+
+    try
+    {
+      exp = parser.parseClassExpression();
+    }
+    catch(Exception e)
+    {
+      return null;
+    }
+
+    return exp;
+  }
+
+  public String compute_rdfstore_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLEntityChecker ec, OWLReasoner r, String req )
+  {
+    String x = full_iri_from_full_or_short_iri( req, o );
+
+    if ( x != null )
+      return x;
+
+    OWLClassExpression exp = parse_manchester( req, o, ec );
+
+    if ( exp != null )
+    {
+      ArrayList<Term> terms = getSubTerms(exp, r);
+
+      return compute_response( terms, 1 );
+    }
+
+    return "Malformed Manchester query";
   }
 
   /*
@@ -948,5 +982,18 @@ public class Owlkb
         out.append(c);
     }
     return out.toString();
+  }
+
+  String full_iri_from_full_or_short_iri( String x, OWLOntology o )
+  {
+    OWLEntity e = shorts.getEntity(x);
+
+    if ( e != null )
+      return e.toStringID();
+
+    if ( o.containsClassInSignature(IRI.create(x)) )
+      return x;
+
+    return null;
   }
 }
