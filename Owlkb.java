@@ -233,8 +233,6 @@ public class Owlkb
         return;
       }
 
-System.out.println( "Debug: "+srvtype );
-
       Headers requestHeaders = t.getRequestHeaders();
       int fJson;
       if ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") )
@@ -259,18 +257,14 @@ System.out.println( "Debug: "+srvtype );
         if ( terms == null || terms.isEmpty() )
           response = (srvtype.equals("labels") ? "No class by that shortform." : "No class with that label.");
         else
-          response = compute_response( terms, fJson );
+          response = compute_response( terms, fJson, false );
       }
       else
       if ( srvtype.equals("addlabel") )
-      {
         response = compute_addlabel_response( owlkb, o, iri, m, req, fJson );
-      }
       else
       if ( srvtype.equals("rdfstore") )
-      {
         response = compute_rdfstore_response( owlkb, o, iri, m, ec, r, req );
-      }
       else
       try
       {
@@ -290,7 +284,7 @@ System.out.println( "Debug: "+srvtype );
             ArrayList<Term> terms = null;
 
             if ( srvtype.equals("subterms") )
-              terms = getSubTerms(exp,r);
+              terms = getSubTerms(exp,r,false);
             else if ( srvtype.equals("eqterms") )
               terms = addTerm(exp, r, m, o, iri, owlkb);
             else if ( srvtype.equals("instances") )
@@ -298,7 +292,7 @@ System.out.println( "Debug: "+srvtype );
             else if ( srvtype.equals("terms") )
               terms = getTerms(exp,r);
 
-            response = compute_response( terms, fJson );
+            response = compute_response( terms, fJson, false );
           }
           else if ( srvtype.equals("rtsubterms") )
           {
@@ -333,7 +327,7 @@ System.out.println( "Debug: "+srvtype );
 
               try
               {
-                ArrayList<Term> subs = getSubTerms(exp,r);
+                ArrayList<Term> subs = getSubTerms(exp,r,false);
 
                 if ( subs.size() != 0 )
                 {
@@ -422,16 +416,25 @@ System.out.println( "Debug: "+srvtype );
    * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
-  private ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI )
   {
     ArrayList<Term> idList = new ArrayList<Term>();
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, false);
 
     if (subClasses!=null)
     {
-      for (Node<OWLClass> owlClassNode : subClasses)
+      if ( longURI )
       {
-        idList.add(new Term(owlClassNode.getEntities().iterator().next().toStringID()));
+        for (Node<OWLClass> owlClassNode : subClasses)
+        {
+          IRI the_iri = owlClassNode.getEntities().iterator().next().getIRI();
+          idList.add(new Term(the_iri.toString()));
+        }
+      }
+      else
+      {
+        for (Node<OWLClass> owlClassNode : subClasses)
+          idList.add(new Term(owlClassNode.getEntities().iterator().next().toStringID()));
       }
     }
 
@@ -518,7 +521,7 @@ System.out.println( "Debug: "+srvtype );
     ArrayList<Term> idList = new ArrayList<Term>();
 
     idList.addAll(getEquivalentTerms(exp,r));
-    idList.addAll(getSubTerms(exp,r));
+    idList.addAll(getSubTerms(exp,r,false));
 
     return idList;
   }
@@ -578,7 +581,7 @@ System.out.println( "Debug: "+srvtype );
     System.out.println( x );
   }
 
-  public String compute_response( ArrayList<Term> terms, int fJson )
+  public String compute_response( ArrayList<Term> terms, int fJson, boolean longURI )
   {
     String x;
 
@@ -592,10 +595,10 @@ System.out.println( "Debug: "+srvtype );
         if ( fencepost == 0 )
         {
           fencepost = 1;
-          x += "'"+shorturl(termp.getId())+"'";
+          x += "'" + (longURI ? termp.getId() : shorturl(termp.getId())) +"'";
         }
         else
-          x += ", '"+shorturl(termp.getId())+"'";
+          x += ", '"+(longURI ? termp.getId() : shorturl(termp.getId()))+"'";
       }
       x += "]";
     }
@@ -604,7 +607,7 @@ System.out.println( "Debug: "+srvtype );
       x = "<table><tr><th>ID</th></tr>";
 
       for ( Term termp : terms )
-        x += "<tr><td>"+shorturl(termp.getId())+"</td></tr>";
+        x += "<tr><td>" + (longURI ? termp.getId() : shorturl(termp.getId())) +"</td></tr>";
 
       x += "</table>";
     }
@@ -614,7 +617,7 @@ System.out.println( "Debug: "+srvtype );
 
   public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
   {
-    ArrayList<Term> terms = getSubTerms( exp, r );
+    ArrayList<Term> terms = getSubTerms( exp, r, false );
 
     return "Not yet implemented";
   }
@@ -953,12 +956,12 @@ System.out.println( "Debug: "+srvtype );
 
     if ( exp != null )
     {
-      ArrayList<Term> terms = getSubTerms(exp, r);
+      ArrayList<Term> terms = getSubTerms(exp, r, true);
 
-      return compute_response( terms, 1 );
+      return compute_response( terms, 1, true );
     }
 
-    return "Malformed Manchester query";
+    return req;
   }
 
   /*
@@ -989,7 +992,7 @@ System.out.println( "Debug: "+srvtype );
     OWLEntity e = shorts.getEntity(x);
 
     if ( e != null )
-      return e.toStringID();
+      return e.getIRI().toString();
 
     if ( o.containsClassInSignature(IRI.create(x)) )
       return x;
