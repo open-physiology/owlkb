@@ -536,7 +536,7 @@ public class Owlkb
       logstring( "Term is new, adding it..." );
 
       String ricordoid = String.valueOf(System.currentTimeMillis());
-      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(owlkb.kbNs + "#RICORDO_" + ricordoid));
+      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(owlkb.kbNs + ricordoid));
 
       OWLAxiom axiom = mgr.getOWLDataFactory().getOWLEquivalentClassesAxiom(newowlclass, exp);
       Set<OWLAxiom> axiomSet = new HashSet<OWLAxiom>();
@@ -658,7 +658,7 @@ public class Owlkb
   {
     o.rname = "elk";
     o.hd_save = true;
-    o.kbNs = "http://www.ricordo.eu/ricordo.owl";
+    o.kbNs = "http://www.ricordo.eu/ricordo.owl#RICORDO_";
     o.kbfilename = "/home/sarala/testkb/ricordo.owl";
     o.help_only = false;
     o.port = 20080;
@@ -677,29 +677,29 @@ public class Owlkb
 
       if ( flag.equals("help") || flag.equals("h") )
       {
-        System.out.println( "Command line options are as follows:"         );
-        System.out.println( "------------------------------------"         );
-        System.out.println( "-file <path to file>"                         );
-        System.out.println( "(Specifies which ontology file to use)"       );
-        System.out.println( "------------------------------------"         );
-        System.out.println( "-port <number>"                               );
-        System.out.println( "(Specified which port the server runs on)"    );
-        System.out.println( "(Default: 20080)"                             );
-        System.out.println( "------------------------------------"         );
-        System.out.println( "-reasoner elk, or -reasoner hermit"           );
-        System.out.println( "(Specifies which reasoner to use)"            );
-        System.out.println( "(Default: elk)"                               );
-        System.out.println( "------------------------------------"         );
-        System.out.println( "-namespace <iri>"                             );
-        System.out.println( "(Specifies namespace for ontology)"           );
-        System.out.println( "(Default: http://www.ricordo.eu/ricordo.owl)" );
-        System.out.println( "------------------------------------"         );
-        System.out.println( "-save true, or -save false"                   );
-        System.out.println( "(Specifies whether owlfile changes are saved)");
-        System.out.println( "(Default: true)"                              );
-        System.out.println( "------------------------------------"         );
-        System.out.println( "-help"                                        );
-        System.out.println( "(Displays this helpfile)"                     );
+        System.out.println( "Command line options are as follows:"                  );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-file <path to file>"                                  );
+        System.out.println( "(Specifies which ontology file to use)"                );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-port <number>"                                        );
+        System.out.println( "(Specified which port the server runs on)"             );
+        System.out.println( "(Default: 20080)"                                      );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-reasoner elk, or -reasoner hermit"                    );
+        System.out.println( "(Specifies which reasoner to use)"                     );
+        System.out.println( "(Default: elk)"                                        );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-namespace <iri>"                                      );
+        System.out.println( "(Specifies namespace for ontology)"                    );
+        System.out.println( "(Default: http://www.ricordo.eu/ricordo.owl#RICORDO_)" );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-save true, or -save false"                            );
+        System.out.println( "(Specifies whether owlfile changes are saved)"         );
+        System.out.println( "(Default: true)"                                       );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-help"                                                 );
+        System.out.println( "(Displays this helpfile)"                              );
         System.out.println( "" );
         o.help_only = true;
         return;
@@ -769,6 +769,7 @@ public class Owlkb
         else
         {
           System.out.println( "What do you want the ontology's namespace to be?" );
+          System.out.println( "Default: http://www.ricordo.eu/ricordo.owl#RICORDO_" );
           o.help_only = true;
           return;
         }
