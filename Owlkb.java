@@ -77,6 +77,7 @@ public class Owlkb
   BidirectionalShortFormProvider shorts;
   BidirectionalShortFormProviderAdapter annovider;
   OWLOntologyImportsClosureSetProvider ontset;
+  Set<OWLOntology> imp_closure;
 
   public static void main(String [] args) throws Exception
   {
@@ -127,7 +128,7 @@ public class Owlkb
     /*
      * Load the ontologies imported by the main ontology (e.g., the reference ontologies)
      */
-    Set<OWLOntology> imp_closure = ont.getImportsClosure();
+    imp_closure = ont.getImportsClosure();
     ontset = new OWLOntologyImportsClosureSetProvider(manager, ont);
 
     /*
@@ -483,7 +484,19 @@ public class Owlkb
     if ( e == null || e.isOWLClass() == false )
       return null;
 
-    Set<OWLAnnotation> annots = e.getAnnotations(o, owlkb.df.getRDFSLabel() );
+    OWLAnnotationProperty rdfslab = owlkb.df.getRDFSLabel();
+
+    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab );
+
+    if ( annots.isEmpty() )
+    {
+      for ( OWLOntology imp : owlkb.imp_closure )
+      {
+        annots = e.getAnnotations( imp, rdfslab );
+        if ( !annots.isEmpty() )
+          break;
+      }
+    }
 
     if ( annots.isEmpty() )
       idList.add( new Term("(Unlabeled class)") );   //To do: create "advanced commandline options" one of which chooses Queen's vs. American English
