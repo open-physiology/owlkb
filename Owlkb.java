@@ -23,10 +23,13 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.Headers;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.net.InetSocketAddress;
 import java.io.*;
 import java.util.Set;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -181,6 +184,7 @@ public class Owlkb
 
     HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/apinatomy", new NetHandler(this, "apinatomy", r, manager, ont, entityChecker, iri));
     server.createContext("/rtsubterms", new NetHandler(this, "rtsubterms", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
     server.createContext("/addlabel", new NetHandler(this, "addlabel", r, manager, ont, entityChecker, iri));
@@ -266,6 +270,9 @@ public class Owlkb
       else
       if ( srvtype.equals("rdfstore") )
         response = compute_rdfstore_response( owlkb, o, iri, m, ec, r, req );
+      else
+      if ( srvtype.equals("apinatomy") )
+        response = compute_apinatomy_response( owlkb, o, iri, m, r, req );
       else
       try
       {
@@ -978,6 +985,188 @@ public class Owlkb
     return req;
   }
 
+  public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  {
+    OWLAnnotationProperty rdfslab = owlkb.df.getRDFSLabel();
+    String response = "[\n";
+    boolean isFirstResult = true;
+    String jsonp_header = "", jsonp_footer = "", blank_response = "[]";
+
+    int qmark = req.indexOf("?");
+    if ( qmark != -1 )
+    {
+      String raw_args = req.substring(qmark+1);
+      req = req.substring(0,qmark);
+
+      Map<String, String> args = get_args( raw_args );
+
+      String callback = args.get("callback");
+      if ( callback != null )
+      {
+        jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
+        jsonp_footer = ");";
+        blank_response = jsonp_header + "[]" + jsonp_footer;
+      }
+    }
+
+    req = req.replace("fma:", "FMA_");
+
+    List<String> shortforms = Arrays.asList(req.split(","));
+
+    if ( req.substring(0,6).equals( "24tile" ) )
+    {
+      try
+      {
+        return jsonp_header + (new Scanner(new File("24tiles.dat")).useDelimiter("\\A").next()) + jsonp_footer;
+      }
+      catch(Exception e)
+      {
+        return blank_response;
+      }
+    }
+
+    for ( String shortform : shortforms )
+    {
+      OWLEntity e = owlkb.shorts.getEntity(shortform);
+
+      if ( e == null || e.isOWLClass() == false )
+{
+System.out.println( "DEBUG: Missing term: "+shortform );
+        continue;
+}
+
+      if ( isFirstResult )
+        isFirstResult = false;
+      else
+        response += ",\n";
+
+      response += "  {\n    \"_id\": \"" + escapeHTML(shortform) + "\",\n";
+
+      String the_label = get_one_rdfs_label( e, o, owlkb, rdfslab );
+
+      if ( the_label == null )
+        the_label = shortform;
+
+      response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
+
+      List<Apinatomy_Sub> subs = get_apinatomy_subs(e, reasoner, o);
+      boolean isFirstSub = true;
+
+      for ( Apinatomy_Sub sub : subs )
+      {
+        if ( isFirstSub )
+          isFirstSub = false;
+        else
+          response += ",\n";
+
+        response += "      {\n        \"type\": \"" + escapeHTML(sub.type) + "\",\n";
+        response += "        \"entity\":\n        {\n          \"_id\": \"" + escapeHTML(sub.id) + "\"\n        }\n      }";
+      }
+
+      response += "\n    ]\n  }";
+    }
+
+    response = response.replace( "FMA_", "fma:" );
+
+    response += "\n]";
+    return jsonp_header + response + jsonp_footer;
+  }
+
+  public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, OWLReasoner r, OWLOntology o )
+  {
+    List<Apinatomy_Sub> response = new ArrayList<Apinatomy_Sub>();
+
+    if ( !( e instanceof OWLClass ) )
+      return response;
+
+    OWLClass c = e.asOWLClass();
+
+    ArrayList<Term> subclasslist = getSubTerms(c, r, false);
+
+    for ( Term subclass : subclasslist )
+    {
+      String the_id = shorturl( subclass.getId() );
+
+      if ( !the_id.equals( "Nothing" ) )
+        response.add( new Apinatomy_Sub( the_id, "subclass" ) );
+    }
+
+    Set<OWLClassExpression> supers = c.getSuperClasses(o);
+
+    for ( OWLClassExpression exp : supers )
+    {
+      if ( !( exp instanceof OWLObjectSomeValuesFrom ) )
+        continue;
+
+      String type = null;
+      OWLRestriction restrict = (OWLRestriction) exp;
+      Set<OWLObjectProperty> objprops = restrict.getObjectPropertiesInSignature();
+
+      for ( OWLObjectProperty objprop : objprops )
+      {
+        String objprop_short = shorturl( objprop.toStringID() );
+
+        if ( objprop_short.equals( "regional_part_of" ) )
+          type = "regional part";
+        else
+        if ( objprop_short.equals( "constitutional_part_of" ) )
+          type = "constitutional part";
+
+        break;
+      }
+
+      if ( type == null )
+        continue;
+
+      Set<OWLClass> classes_in_signature = restrict.getClassesInSignature();
+      for ( OWLClass class_in_signature : classes_in_signature )
+      {
+        response.add( new Apinatomy_Sub( shorturl(class_in_signature.toStringID()), type ) );
+        break;
+      }
+    }
+
+    return response;
+  }
+
+  class Apinatomy_Sub
+  {
+    public String id;
+    public String type;
+
+    public Apinatomy_Sub(String id, String type)
+    {
+      this.id = id;
+      this.type = type;
+    }
+  }
+
+  public String get_one_rdfs_label( OWLEntity e, OWLOntology o, Owlkb owlkb, OWLAnnotationProperty rdfslab )
+  {
+    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab);
+
+    if ( annots.isEmpty() )
+    {
+      for ( OWLOntology imp : owlkb.imp_closure )
+      {
+        annots = e.getAnnotations( imp, rdfslab );
+        if ( !annots.isEmpty() )
+          break;
+      }
+    }
+
+    if ( annots.isEmpty() )
+      return null;
+
+    for ( OWLAnnotation a : annots )
+    {
+      if ( a.getValue() instanceof OWLLiteral )
+        return ((OWLLiteral)a.getValue()).getLiteral();
+    }
+
+    return null;
+  }
+
   /*
    * escapeHTML taken from Bruno Eberhard at stackoverflow
    */
@@ -1012,5 +1201,26 @@ public class Owlkb
       return x;
 
     return null;
+  }
+
+  public static Map<String, String> get_args(String query)
+  {
+    Map<String, String> result = new HashMap<String, String>();
+    try
+    {
+      for (String param : query.split("&"))
+      {
+        String pair[] = param.split("=");
+        if (pair.length > 1)
+          result.put(URLDecoder.decode(pair[0],"UTF-8"), URLDecoder.decode(pair[1],"UTF-8"));
+        else
+          result.put(URLDecoder.decode(pair[0],"UTF-8"), "");
+      }
+    }
+    catch( Exception e )
+    {
+      ;
+    }
+    return result;
   }
 }
