@@ -118,6 +118,7 @@ public class Owlkb
     }
     catch ( Exception e )
     {
+e.printStackTrace();
       System.out.println( "Could not load file: "+kbfilename );
       System.out.println( "To specify a different filename, run with -file <filename>" );
       System.out.println( "Also, make sure java has permission to access the file." );
@@ -1106,10 +1107,10 @@ System.out.println( "DEBUG: Missing term: "+shortform );
       {
         String objprop_short = shorturl( objprop.toStringID() );
 
-        if ( objprop_short.equals( "regional_part_of" ) )
+        if ( objprop_short.equals( "regional_part" ) )
           type = "regional part";
         else
-        if ( objprop_short.equals( "constitutional_part_of" ) )
+        if ( objprop_short.equals( "constitutional_part" ) )
           type = "constitutional part";
 
         break;
