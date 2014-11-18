@@ -1031,10 +1031,7 @@ e.printStackTrace();
       OWLEntity e = owlkb.shorts.getEntity(shortform);
 
       if ( e == null || e.isOWLClass() == false )
-{
-System.out.println( "DEBUG: Missing term: "+shortform );
         continue;
-}
 
       if ( isFirstResult )
         isFirstResult = false;
