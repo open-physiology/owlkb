@@ -1047,7 +1047,7 @@ e.printStackTrace();
 
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
-      List<Apinatomy_Sub> subs = get_apinatomy_subs(e, reasoner, o);
+      List<Apinatomy_Sub> subs = get_apinatomy_subs(e, owlkb, reasoner, o);
       boolean isFirstSub = true;
 
       for ( Apinatomy_Sub sub : subs )
@@ -1070,7 +1070,7 @@ e.printStackTrace();
     return jsonp_header + response + jsonp_footer;
   }
 
-  public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, OWLReasoner r, OWLOntology o )
+  public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, Owlkb owlkb, OWLReasoner r, OWLOntology o )
   {
     List<Apinatomy_Sub> response = new ArrayList<Apinatomy_Sub>();
 
@@ -1089,38 +1089,41 @@ e.printStackTrace();
         response.add( new Apinatomy_Sub( the_id, "subclass" ) );
     }
 
-    Set<OWLClassExpression> supers = c.getSuperClasses(o);
-
-    for ( OWLClassExpression exp : supers )
+    for ( OWLOntology imp : owlkb.imp_closure )
     {
-      if ( !( exp instanceof OWLObjectSomeValuesFrom ) )
-        continue;
+      Set<OWLClassExpression> supers = c.getSuperClasses(imp);
 
-      String type = null;
-      OWLRestriction restrict = (OWLRestriction) exp;
-      Set<OWLObjectProperty> objprops = restrict.getObjectPropertiesInSignature();
-
-      for ( OWLObjectProperty objprop : objprops )
+      for ( OWLClassExpression exp : supers )
       {
-        String objprop_short = shorturl( objprop.toStringID() );
+        if ( !( exp instanceof OWLObjectSomeValuesFrom ) )
+          continue;
 
-        if ( objprop_short.equals( "regional_part" ) )
-          type = "regional part";
-        else
-        if ( objprop_short.equals( "constitutional_part" ) )
-          type = "constitutional part";
+        String type = null;
+        OWLRestriction restrict = (OWLRestriction) exp;
+        Set<OWLObjectProperty> objprops = restrict.getObjectPropertiesInSignature();
 
-        break;
-      }
+        for ( OWLObjectProperty objprop : objprops )
+        {
+          String objprop_short = shorturl( objprop.toStringID() );
 
-      if ( type == null )
-        continue;
+          if ( objprop_short.equals( "regional_part" ) )
+            type = "regional part";
+          else
+          if ( objprop_short.equals( "constitutional_part" ) )
+            type = "constitutional part";
 
-      Set<OWLClass> classes_in_signature = restrict.getClassesInSignature();
-      for ( OWLClass class_in_signature : classes_in_signature )
-      {
-        response.add( new Apinatomy_Sub( shorturl(class_in_signature.toStringID()), type ) );
-        break;
+          break;
+        }
+
+        if ( type == null )
+          continue;
+
+        Set<OWLClass> classes_in_signature = restrict.getClassesInSignature();
+        for ( OWLClass class_in_signature : classes_in_signature )
+        {
+          response.add( new Apinatomy_Sub( shorturl(class_in_signature.toStringID()), type ) );
+          break;
+        }
       }
     }
 
