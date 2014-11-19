@@ -23,6 +23,8 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.Headers;
+import java.net.URL;
+import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.net.InetSocketAddress;
@@ -1045,6 +1047,8 @@ e.printStackTrace();
       if ( the_label == null )
         the_label = shortform;
 
+      the_label = the_label + " (" + queryFeatherweight(shortform) + ")";
+
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
       List<Apinatomy_Sub> subs = get_apinatomy_subs(e, owlkb, reasoner, o);
@@ -1068,6 +1072,36 @@ e.printStackTrace();
 
     response += "\n]";
     return jsonp_header + response + jsonp_footer;
+  }
+
+  public String queryFeatherweight(String x)
+  {
+    StringBuilder buf = null;
+    Reader r = null;
+
+    try
+    {
+      URL url = new URL("http://open-physiology.org:5053/count-recursive/http://purl.org/obo/owlapi/fma%23"+x);
+      URLConnection con = url.openConnection();
+      r = new InputStreamReader(con.getInputStream(), "UTF-8");
+      buf = new StringBuilder();
+
+      while (true)
+      {
+        int ch = r.read();
+        if (ch < 0)
+          break;
+        buf.append((char) ch);
+      }
+      String s = buf.toString();
+      s = s.substring("{\"Results\": [".length() );
+      s = s.substring(0,s.length()-2);
+      return s;
+    }
+    catch(Exception e)
+    {
+      return "?";
+    }
   }
 
   public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, Owlkb owlkb, OWLReasoner r, OWLOntology o )
