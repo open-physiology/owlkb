@@ -1,0 +1,45 @@
+[
+  {
+    "_id": "pkpd_base",
+    "name": "pkpd root tile",
+    "sub":
+    [
+      {
+        "type": "seed",
+        "entity": {
+          "_id": "pkpd_0000035"
+        }
+      },
+      {
+        "type": "seed",
+        "entity": {
+          "_id": "pkpd_0001030"
+        }
+      },
+      {
+        "type": "seed",
+        "entity": {
+          "_id": "pkpd_0000005"
+        }
+      },
+      {
+        "type": "seed",
+        "entity": {
+          "_id": "pkpd_0000410"
+        }
+      },
+      {
+        "type": "seed",
+        "entity": {
+          "_id": "pkpd_0000428"
+        }
+      },
+      {
+        "type": "seed",
+        "entity": {
+          "_id": "pkpd_0000048"
+        }
+      }
+    ]
+  }
+]

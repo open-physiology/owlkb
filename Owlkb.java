@@ -1028,11 +1028,24 @@ e.printStackTrace();
       }
     }
 
+    if ( req.equals("pkpd_base") )
+    {
+      try
+      {
+        return jsonp_header + (new Scanner(new File("pkpdroot.dat")).useDelimiter("\\A").next()) + jsonp_footer;
+      }
+      catch(Exception e)
+      {
+        return blank_response;
+      }
+    }
+
+
     for ( String shortform : shortforms )
     {
       OWLEntity e = owlkb.shorts.getEntity(shortform);
 
-      if ( e == null || e.isOWLClass() == false )
+      if ( e == null || (e.isOWLClass() == false && e.isOWLNamedIndividual() == false) )
         continue;
 
       if ( isFirstResult )
@@ -1051,18 +1064,21 @@ e.printStackTrace();
 
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
-      List<Apinatomy_Sub> subs = get_apinatomy_subs(e, owlkb, reasoner, o);
-      boolean isFirstSub = true;
-
-      for ( Apinatomy_Sub sub : subs )
+      if ( e.isOWLClass() )
       {
-        if ( isFirstSub )
-          isFirstSub = false;
-        else
-          response += ",\n";
+        List<Apinatomy_Sub> subs = get_apinatomy_subs(e, owlkb, reasoner, o);
+        boolean isFirstSub = true;
 
-        response += "      {\n        \"type\": \"" + escapeHTML(sub.type) + "\",\n";
-        response += "        \"entity\":\n        {\n          \"_id\": \"" + escapeHTML(sub.id) + "\"\n        }\n      }";
+        for ( Apinatomy_Sub sub : subs )
+        {
+          if ( isFirstSub )
+            isFirstSub = false;
+          else
+            response += ",\n";
+
+          response += "      {\n        \"type\": \"" + escapeHTML(sub.type) + "\",\n";
+          response += "        \"entity\":\n        {\n          \"_id\": \"" + escapeHTML(sub.id) + "\"\n        }\n      }";
+        }
       }
 
       response += "\n    ]\n  }";
@@ -1158,6 +1174,16 @@ e.printStackTrace();
           response.add( new Apinatomy_Sub( shorturl(class_in_signature.toStringID()), type ) );
           break;
         }
+      }
+
+      Set<OWLIndividual> inds = c.getIndividuals(imp);
+
+      for ( OWLIndividual ind : inds )
+      {
+        if ( !(ind instanceof OWLNamedIndividual) )
+          continue;
+
+        response.add( new Apinatomy_Sub( shorturl( ind.asOWLNamedIndividual().getIRI().toString() ), "subclass" ) );
       }
     }
 
