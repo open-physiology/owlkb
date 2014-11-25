@@ -295,7 +295,7 @@ e.printStackTrace();
             ArrayList<Term> terms = null;
 
             if ( srvtype.equals("subterms") )
-              terms = getSubTerms(exp,r,false);
+              terms = getSubTerms(exp,r,false,false);
             else if ( srvtype.equals("eqterms") )
               terms = addTerm(exp, r, m, o, iri, owlkb);
             else if ( srvtype.equals("instances") )
@@ -338,7 +338,7 @@ e.printStackTrace();
 
               try
               {
-                ArrayList<Term> subs = getSubTerms(exp,r,false);
+                ArrayList<Term> subs = getSubTerms(exp,r,false,false);
 
                 if ( subs.size() != 0 )
                 {
@@ -427,10 +427,10 @@ e.printStackTrace();
    * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
-  private ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI )
+  private ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct )
   {
     ArrayList<Term> idList = new ArrayList<Term>();
-    NodeSet<OWLClass> subClasses = r.getSubClasses(exp, false);
+    NodeSet<OWLClass> subClasses = r.getSubClasses(exp, direct);
 
     if (subClasses!=null)
     {
@@ -544,7 +544,7 @@ e.printStackTrace();
     ArrayList<Term> idList = new ArrayList<Term>();
 
     idList.addAll(getEquivalentTerms(exp,r));
-    idList.addAll(getSubTerms(exp,r,false));
+    idList.addAll(getSubTerms(exp,r,false,false));
 
     return idList;
   }
@@ -640,7 +640,7 @@ e.printStackTrace();
 
   public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
   {
-    ArrayList<Term> terms = getSubTerms( exp, r, false );
+    ArrayList<Term> terms = getSubTerms( exp, r, false, false );
 
     return "Not yet implemented";
   }
@@ -980,7 +980,7 @@ e.printStackTrace();
 
     if ( exp != null )
     {
-      ArrayList<Term> terms = getSubTerms(exp, r, true);
+      ArrayList<Term> terms = getSubTerms(exp, r, true, false);
 
       return compute_response( terms, 1, true );
     }
@@ -1015,6 +1015,12 @@ e.printStackTrace();
     req = req.replace("fma:", "FMA_");
 
     List<String> shortforms = Arrays.asList(req.split(","));
+
+    /*
+     * Max size chosen based on FMA's most prolific class, FMA_21792 ("Fascia of muscle"), which has 222 subs
+     */
+    if ( shortforms.size() > 250 )
+      return blank_response;
 
     if ( req.substring(0,6).equals( "24tile" ) )
     {
@@ -1129,7 +1135,7 @@ e.printStackTrace();
 
     OWLClass c = e.asOWLClass();
 
-    ArrayList<Term> subclasslist = getSubTerms(c, r, false);
+    ArrayList<Term> subclasslist = getSubTerms(c, r, false, true);
 
     for ( Term subclass : subclasslist )
     {
