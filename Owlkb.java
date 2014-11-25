@@ -261,7 +261,7 @@ e.printStackTrace();
 
       if ( srvtype.equals("labels") || srvtype.equals("search") )
       {
-        ArrayList<Term> terms = (srvtype.equals("labels") ? getLabels( req, o, owlkb ) : SearchByLabel( req, o, owlkb ));
+        ArrayList<String> terms = (srvtype.equals("labels") ? getLabels( req, o, owlkb ) : SearchByLabel( req, o, owlkb ));
         if ( terms == null || terms.isEmpty() )
           response = (srvtype.equals("labels") ? "No class by that shortform." : "No class with that label.");
         else
@@ -292,7 +292,7 @@ e.printStackTrace();
           ||   srvtype.equals("instances")
           ||   srvtype.equals("terms") )
           {
-            ArrayList<Term> terms = null;
+            ArrayList<String> terms = null;
 
             if ( srvtype.equals("subterms") )
               terms = getSubTerms(exp,r,false,false);
@@ -311,7 +311,7 @@ e.printStackTrace();
           }
           else if ( srvtype.equals("test") )
           {
-            ArrayList<Term> terms;
+            ArrayList<String> terms;
 
             try
             {
@@ -330,23 +330,23 @@ e.printStackTrace();
             {
               response = "<h3>Term</h3><ul>";
 
-              for ( Term termp : terms )
+              for ( String termp : terms )
               {
-                response += "<li>" + shorturl(termp.getId()) + "</li>";
+                response += "<li>" + shorturl(termp) + "</li>";
               }
               response += "</ul>";
 
               try
               {
-                ArrayList<Term> subs = getSubTerms(exp,r,false,false);
+                ArrayList<String> subs = getSubTerms(exp,r,false,false);
 
                 if ( subs.size() != 0 )
                 {
                   response += "<h3>Subterms</h3><ul>";
 
-                  for ( Term termp : subs )
+                  for ( String termp : subs )
                   {
-                    response += "<li>"+shorturl(termp.getId())+"</li>";
+                    response += "<li>"+shorturl(termp)+"</li>";
                   }
                   response += "</ul>";
                 }
@@ -427,9 +427,9 @@ e.printStackTrace();
    * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
-  private ArrayList<Term> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct )
+  private ArrayList<String> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct )
   {
-    ArrayList<Term> idList = new ArrayList<Term>();
+    ArrayList<String> idList = new ArrayList<String>();
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, direct);
 
     if (subClasses!=null)
@@ -439,43 +439,43 @@ e.printStackTrace();
         for (Node<OWLClass> owlClassNode : subClasses)
         {
           IRI the_iri = owlClassNode.getEntities().iterator().next().getIRI();
-          idList.add(new Term(the_iri.toString()));
+          idList.add(the_iri.toString());
         }
       }
       else
       {
         for (Node<OWLClass> owlClassNode : subClasses)
-          idList.add(new Term(owlClassNode.getEntities().iterator().next().toStringID()));
+          idList.add(owlClassNode.getEntities().iterator().next().toStringID());
       }
     }
 
     return idList;
   }
 
-  private ArrayList<Term> getInstances(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<String> getInstances(OWLClassExpression exp, OWLReasoner r)
   {
-    ArrayList<Term> idList = new ArrayList<Term>();
+    ArrayList<String> idList = new ArrayList<String>();
     NodeSet<OWLNamedIndividual> inst = r.getInstances(exp, false);
 
     if (inst != null)
     {
       for (Node<OWLNamedIndividual> ind : inst)
-        idList.add(new Term(ind.getEntities().iterator().next().toStringID()));
+        idList.add(ind.getEntities().iterator().next().toStringID());
     }
 
     return idList;
   }
 
-  private ArrayList<Term> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<String> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r)
   {
-    ArrayList<Term> idList = new ArrayList<Term>();
+    ArrayList<String> idList = new ArrayList<String>();
     Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
 
     if(equivalentClasses != null)
     {
       try
       {
-        idList.add(new Term(equivalentClasses.getEntities().iterator().next().toStringID()));
+        idList.add(equivalentClasses.getEntities().iterator().next().toStringID());
       }
       catch (java.util.NoSuchElementException e)
       {
@@ -486,10 +486,10 @@ e.printStackTrace();
     return idList;
   }
 
-  public ArrayList<Term> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
+  public ArrayList<String> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
   {
     OWLEntity e = owlkb.shorts.getEntity(shortform);
-    ArrayList<Term> idList = new ArrayList<Term>();
+    ArrayList<String> idList = new ArrayList<String>();
 
     if ( e == null || e.isOWLClass() == false )
       return null;
@@ -509,21 +509,21 @@ e.printStackTrace();
     }
 
     if ( annots.isEmpty() )
-      idList.add( new Term("(Unlabeled class)") );   //To do: create "advanced commandline options" one of which chooses Queen's vs. American English
+      idList.add( "(Unlabeled class)" );   //To do: create "advanced commandline options" one of which chooses Queen's vs. American English
     else
     for ( OWLAnnotation a : annots )
     {
       if ( a.getValue() instanceof OWLLiteral )
-        idList.add( new Term(((OWLLiteral)a.getValue()).getLiteral()) );
+        idList.add( ((OWLLiteral)a.getValue()).getLiteral() );
     }
 
     return idList;
   }
 
-  public ArrayList<Term> SearchByLabel(String label, OWLOntology o, Owlkb owlkb)
+  public ArrayList<String> SearchByLabel(String label, OWLOntology o, Owlkb owlkb)
   {
     Set<OWLEntity> ents = owlkb.annovider.getEntities(label);
-    ArrayList<Term> idList = new ArrayList<Term>();
+    ArrayList<String> idList = new ArrayList<String>();
 
     if ( ents == null || ents.isEmpty()==true )
       return null;
@@ -533,15 +533,15 @@ e.printStackTrace();
       if ( e.isOWLClass() == false || e.asOWLClass().isAnonymous() == true )
         continue;
 
-      idList.add( new Term(owlkb.shorts.getShortForm(e)) );
+      idList.add( owlkb.shorts.getShortForm(e) );
     }
 
     return idList;
   }
 
-  public ArrayList<Term> getTerms(OWLClassExpression exp, OWLReasoner r)
+  public ArrayList<String> getTerms(OWLClassExpression exp, OWLReasoner r)
   {
-    ArrayList<Term> idList = new ArrayList<Term>();
+    ArrayList<String> idList = new ArrayList<String>();
 
     idList.addAll(getEquivalentTerms(exp,r));
     idList.addAll(getSubTerms(exp,r,false,false));
@@ -549,15 +549,11 @@ e.printStackTrace();
     return idList;
   }
 
-  public ArrayList<Term> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, Owlkb owlkb)
+  public ArrayList<String> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, Owlkb owlkb)
   {
-    logstring( "addTerm called..." );
-
-    ArrayList<Term> idList = getEquivalentTerms(exp,r);
+    ArrayList<String> idList = getEquivalentTerms(exp,r);
     if(idList.isEmpty())
     {
-      logstring( "Term is new, adding it..." );
-
       String ricordoid = String.valueOf(System.currentTimeMillis());
       OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(owlkb.kbNs + ricordoid));
 
@@ -570,16 +566,10 @@ e.printStackTrace();
       if ( owlkb.rname == "elk" )
         r.flush();
 
-      logstring( "New term added to ontology in RAM." );
-
       maybe_save_ontology( owlkb, ont, iri, mgr );
 
-      logstring( "Precomputing inferences..." );
-
-      idList.add(new Term(newowlclass.toStringID()));
+      idList.add(newowlclass.toStringID());
       r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
-
-      logstring( "Finished precomputing inferences." );
     }
     else
       logstring( "Term already exists, no need to add." );
@@ -604,7 +594,7 @@ e.printStackTrace();
     System.out.println( x );
   }
 
-  public String compute_response( ArrayList<Term> terms, int fJson, boolean longURI )
+  public String compute_response( ArrayList<String> terms, int fJson, boolean longURI )
   {
     String x;
 
@@ -613,15 +603,15 @@ e.printStackTrace();
       x = "[";
       int fencepost = 0;
 
-      for ( Term termp : terms )
+      for ( String termp : terms )
       {
         if ( fencepost == 0 )
         {
           fencepost = 1;
-          x += "'" + (longURI ? termp.getId() : shorturl(termp.getId())) +"'";
+          x += "'" + (longURI ? termp : shorturl(termp)) +"'";
         }
         else
-          x += ", '"+(longURI ? termp.getId() : shorturl(termp.getId()))+"'";
+          x += ", '"+(longURI ? termp : shorturl(termp))+"'";
       }
       x += "]";
     }
@@ -629,8 +619,8 @@ e.printStackTrace();
     {
       x = "<table><tr><th>ID</th></tr>";
 
-      for ( Term termp : terms )
-        x += "<tr><td>" + (longURI ? termp.getId() : shorturl(termp.getId())) +"</td></tr>";
+      for ( String termp : terms )
+        x += "<tr><td>" + (longURI ? termp : shorturl(termp)) +"</td></tr>";
 
       x += "</table>";
     }
@@ -640,35 +630,9 @@ e.printStackTrace();
 
   public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
   {
-    ArrayList<Term> terms = getSubTerms( exp, r, false, false );
+    ArrayList<String> terms = getSubTerms( exp, r, false, false );
 
     return "Not yet implemented";
-  }
-
-  /*
-   * The following Term class was written by Sarala W.
-   * (To do: root it out and replace it by String)
-   */
-  class Term
-  {
-    private String id;
-
-    public Term() {}
-
-    public Term(String id)
-    {
-        this.id = id;
-    }
-
-    public String getId()
-    {
-        return id;
-    }
-
-    public void setId(String id)
-    {
-        this.id = id;
-    }
   }
 
   public void init_owlkb( Owlkb o, String [] args )
@@ -893,7 +857,7 @@ e.printStackTrace();
     }
 
     OWLEntity e = owlkb.shorts.getEntity(iri);
-    ArrayList<Term> idList = new ArrayList<Term>();
+    //ArrayList<String> idList = new ArrayList<String>();
 
     if ( e == null || e.isOWLClass() == false )
     {
@@ -980,7 +944,7 @@ e.printStackTrace();
 
     if ( exp != null )
     {
-      ArrayList<Term> terms = getSubTerms(exp, r, true, false);
+      ArrayList<String> terms = getSubTerms(exp, r, true, false);
 
       return compute_response( terms, 1, true );
     }
@@ -1135,11 +1099,11 @@ e.printStackTrace();
 
     OWLClass c = e.asOWLClass();
 
-    ArrayList<Term> subclasslist = getSubTerms(c, r, false, true);
+    ArrayList<String> subclasslist = getSubTerms(c, r, false, true);
 
-    for ( Term subclass : subclasslist )
+    for ( String subclass : subclasslist )
     {
-      String the_id = shorturl( subclass.getId() );
+      String the_id = shorturl( subclass );
 
       if ( !the_id.equals( "Nothing" ) )
         response.add( new Apinatomy_Sub( the_id, "subclass" ) );
