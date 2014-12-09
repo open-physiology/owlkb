@@ -197,6 +197,7 @@ public class Owlkb
     server.createContext("/rdfstore", new NetHandler(this, "rdfstore", r, manager, ont, entityChecker, iri));
     server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
     server.createContext("/shortestpath", new NetHandler(this, "shortestpath", r, manager, ont, entityChecker, iri));
+    server.createContext("/subgraph", new NetHandler(this, "subgraph", r, manager, ont, entityChecker, iri));
 
     server.createContext("/gui", new NetHandler(this, "gui", r, manager, ont, entityChecker, iri));
 
@@ -279,6 +280,9 @@ public class Owlkb
       else
       if ( srvtype.equals("shortestpath") )
         response = compute_shortestpath_response( owlkb, o, iri, m, r, req );
+      else
+      if ( srvtype.equals("subgraph") )
+        response = compute_subgraph_response( owlkb, o, iri, m, r, req );
       else
       try
       {
@@ -966,6 +970,32 @@ public class Owlkb
     return req;
   }
 
+  public String compute_subgraph_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  {
+    String jsonp_header = "", jsonp_footer = "", blank_response = "[]";
+
+    int qmark = req.indexOf("?");
+    if ( qmark != -1 )
+    {
+      String raw_args = req.substring(qmark+1);
+      req = req.substring(0,qmark);
+
+      Map<String, String> args = get_args( raw_args );
+
+      String callback = args.get("callback");
+      if ( callback != null )
+      {
+        jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
+        jsonp_footer = ");";
+        blank_response = jsonp_header + "[]" + jsonp_footer;
+      }
+    }
+
+    req = "," + req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
+
+    return jsonp_header + queryFeather("subgraph", req) + jsonp_footer;
+  }
+
   public String compute_shortestpath_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     String jsonp_header = "", jsonp_footer = "", blank_response = "[]";
@@ -989,9 +1019,7 @@ public class Owlkb
 
     req = req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
 
-System.out.println( "Debug: "+queryFeatherForShortpath(req) );
-
-    return jsonp_header + queryFeatherForShortpath(req) + jsonp_footer;
+    return jsonp_header + queryFeather("shortpath", req) + jsonp_footer;
   }
 
   public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
@@ -1132,14 +1160,14 @@ System.out.println( "Debug: "+queryFeatherForShortpath(req) );
     }
   }
 
-  public String queryFeatherForShortpath( String x )
+  public String queryFeather( String command, String x )
   {
     StringBuilder buf = null;
     Reader r = null;
 
     try
     {
-      URL url = new URL("http://open-physiology.org:5053/shortpath/"+x);
+      URL url = new URL("http://open-physiology.org:5053/"+command+"/"+x);
       URLConnection con = url.openConnection();
       r = new InputStreamReader(con.getInputStream(), "UTF-8");
       buf = new StringBuilder();
@@ -1156,7 +1184,6 @@ System.out.println( "Debug: "+queryFeatherForShortpath(req) );
     }
     catch(Exception e)
     {
-e.printStackTrace();
       return "?";
     }
   }
