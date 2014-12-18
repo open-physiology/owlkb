@@ -313,7 +313,7 @@ public class Owlkb
               String ambigs = naive_JSON_parse( LOLS_reply, "Ambiguities", "\n  [", "\n  ]" );
               if ( ambigs != null && !ambigs.trim().equals("") )
               {
-                Manchester_Error = "{\n  \"Ambiguities\":\n  {\n      [" + ambigs.trim() + "]\n  }\n}";
+                Manchester_Error = "{\n  \"Ambiguities\":\n  [\n    " + ambigs.trim() + "\n  ]\n}";
                 exp = null;
               }
               else
