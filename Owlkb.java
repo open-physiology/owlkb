@@ -310,10 +310,10 @@ public class Owlkb
             }
             else
             {
-              String ambigs = naive_JSON_parse( LOLS_reply, "Ambiguities", '{', '}' );
+              String ambigs = naive_JSON_parse( LOLS_reply, "Ambiguities", "\n  [", "\n  ]" );
               if ( ambigs != null && !ambigs.trim().equals("") )
               {
-                Manchester_Error = "{\"Ambiguities\": " + ambigs.trim() + "}";
+                Manchester_Error = "{\"Ambiguities\": [" + ambigs.trim() + "]}";
                 exp = null;
               }
               else
@@ -1429,10 +1429,10 @@ public class Owlkb
 
   public String naive_JSON_parse(String json, String key)
   {
-    return naive_JSON_parse( json, key, '\"', '\"' );
+    return naive_JSON_parse( json, key, "\"", "\"" );
   }
 
-  public String naive_JSON_parse(String json, String key, char start, char end )
+  public String naive_JSON_parse(String json, String key, String start, String end )
   {
     String needle = "\"" + key + "\":";
     int pos = json.indexOf(needle);
@@ -1447,7 +1447,7 @@ public class Owlkb
     if ( pos == -1 )
       return null;
 
-    pos++;
+    pos += start.length();
 
     int endpos = json.indexOf(end, pos);
 
