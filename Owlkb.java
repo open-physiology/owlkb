@@ -70,6 +70,7 @@ public class Owlkb
    */
   public String rname;      // Reasoner name.  Default: "elk"
   public boolean hd_save;   // Whether to save changes to harddrive.  Default: true
+  public boolean ucl_syntax;// Whether to parse UCL syntax (by calling LOLS)
   public String kbNs;       // Namespace for RICORDO_### terms.  Default: "http://www.ricordo.eu/ricordo.owl"
   public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
   public boolean help_only; // Whether to show helpscreen and exit.  Default: false
@@ -286,11 +287,66 @@ public class Owlkb
       else
       try
       {
-        OWLClassExpression exp = parse_manchester( req, o, ec );
+        OWLClassExpression exp;
+        String Manchester_Error = "";
+
+        if ( owlkb.ucl_syntax )
+        {
+          String LOLS_reply = queryURL( "http://open-physiology.org:5052/uclsyntax/" + URLEncoder.encode(req,"UTF-8") );
+
+          if ( LOLS_reply == null )
+          {
+            exp = parse_manchester( req, o, ec );
+            if ( exp == null )
+              Manchester_Error = "Could not connect to LOLS for UCL syntax parsing";
+          }
+          else
+          {
+            String error = naive_JSON_parse( LOLS_reply, "Error" );
+            if ( error != null && !error.trim().equals("") )
+            {
+              Manchester_Error = error.trim();
+              exp = null;
+            }
+            else
+            {
+              String ambigs = naive_JSON_parse_list( LOLS_reply, "Ambiguities" );
+              if ( ambigs != null && !ambigs.trim().equals("") )
+              {
+                Manchester_Error = "{\"Ambiguities\": " + ambigs.trim() + "}";
+                exp = null;
+              }
+              else
+              {
+                String ucl_to_manchester = naive_JSON_parse( LOLS_reply, "Result" );
+                if ( ucl_to_manchester == null )
+                {
+                  Manchester_Error = LOLS_reply.trim();
+                  exp = null;
+                }
+                else
+                {
+                  exp = parse_manchester( ucl_to_manchester, o, ec );
+                  if ( exp == null )
+                  {
+                    String possible_error = naive_JSON_parse( LOLS_reply, "Possible_error" );
+                    if ( possible_error != null )
+                      Manchester_Error = possible_error;
+                  }
+                }
+              }
+            }
+          }
+        }
+        else
+          exp = parse_manchester( req, o, ec );
 
         if ( exp == null )
         {
-          response = "Malformed Manchester query";
+          if ( !Manchester_Error.equals("") )
+            response = Manchester_Error;
+          else
+            response = "Malformed Manchester query";
         }
         else
         {
@@ -703,6 +759,10 @@ public class Owlkb
         System.out.println( "(Specifies whether owlfile changes are saved)"         );
         System.out.println( "(Default: true)"                                       );
         System.out.println( "------------------------------------"                  );
+        System.out.println( "-uclsyntax true, or -uclsyntax false"                  );
+        System.out.println( "(Specifies whether OWLKB understands UCL syntax)"      );
+        System.out.println( "(Default: false)"                                      );
+        System.out.println( "------------------------------------"                  );
         System.out.println( "-help"                                                 );
         System.out.println( "(Displays this helpfile)"                              );
         System.out.println( "" );
@@ -759,6 +819,23 @@ public class Owlkb
         else
         {
           System.out.println( "hd_save can be set to: true, false" );
+          o.help_only = true;
+          return;
+        }
+        i++;
+      }
+      else if ( flag.equals( "uclsyntax" ) || flag.equals("ucl-syntax") || flag.equals("ucl_syntax") )
+      {
+        if ( i+1 < args.length && (args[i+1].equals("t") || args[i+1].equals("true")) )
+        {
+          o.ucl_syntax = true;
+          System.out.println( "UCL Syntax: enabled" );
+        }
+        else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
+          o.ucl_syntax = false;
+        else
+        {
+          System.out.println( "uclsyntax can be set to: true, false" );
           o.help_only = true;
           return;
         }
@@ -993,7 +1070,12 @@ public class Owlkb
 
     req = "," + req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
 
-    return jsonp_header + queryFeather("subgraph", req) + jsonp_footer;
+    String feather_response = queryFeather("subgraph", req);
+
+    if ( feather_response == null )
+      return jsonp_header + "?" + jsonp_footer;
+    else
+      return jsonp_header + feather_response + jsonp_footer;
   }
 
   public String compute_shortestpath_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
@@ -1018,8 +1100,12 @@ public class Owlkb
     }
 
     req = req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
+    String feather_response = queryFeather("shortpath", req);
 
-    return jsonp_header + queryFeather("shortpath", req) + jsonp_footer;
+    if ( feather_response == null )
+      return jsonp_header + "?" + jsonp_footer;
+    else
+      return jsonp_header + feather_response + jsonp_footer;
   }
 
   public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
@@ -1100,7 +1186,12 @@ public class Owlkb
       if ( the_label == null )
         the_label = shortform;
 
-      the_label = the_label + " (" + queryFeatherweight(shortform) + ")";
+      String feather_response = queryFeatherweight(shortform);
+
+      if ( feather_response == null )
+        the_label = the_label + " (?)";
+      else
+        the_label = the_label + " (" + feather_response + ")";
 
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
@@ -1130,14 +1221,14 @@ public class Owlkb
     return jsonp_header + response + jsonp_footer;
   }
 
-  public String queryFeatherweight(String x)
+  public String queryURL(String urlstring)
   {
     StringBuilder buf = null;
     Reader r = null;
 
     try
     {
-      URL url = new URL("http://open-physiology.org:5053/count-recursive/http://purl.org/obo/owlapi/fma%23"+x);
+      URL url = new URL(urlstring);
       URLConnection con = url.openConnection();
       r = new InputStreamReader(con.getInputStream(), "UTF-8");
       buf = new StringBuilder();
@@ -1149,43 +1240,26 @@ public class Owlkb
           break;
         buf.append((char) ch);
       }
-      String s = buf.toString();
-      s = s.substring("{\"Results\": [".length() );
-      s = s.substring(0,s.length()-2);
-      return s;
+      return buf.toString();
     }
     catch(Exception e)
     {
-      return "?";
+      return null;
     }
+  }
+
+  public String queryFeatherweight(String x)
+  {
+    String s = queryURL("http://open-physiology.org:5053/count-recursive/http://purl.org/obo/owlapi/fma%23"+x);
+    s = s.substring("{\"Results\": [".length() );
+    s = s.substring(0,s.length()-2);
+
+    return s;
   }
 
   public String queryFeather( String command, String x )
   {
-    StringBuilder buf = null;
-    Reader r = null;
-
-    try
-    {
-      URL url = new URL("http://open-physiology.org:5053/"+command+"/"+x);
-      URLConnection con = url.openConnection();
-      r = new InputStreamReader(con.getInputStream(), "UTF-8");
-      buf = new StringBuilder();
-
-      while (true)
-      {
-        int ch = r.read();
-        if (ch < 0)
-          break;
-        buf.append((char) ch);
-      }
-      String s = buf.toString();
-      return s;
-    }
-    catch(Exception e)
-    {
-      return "?";
-    }
+    return queryURL("http://open-physiology.org:5053/"+command+"/"+x);
   }
 
   public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, Owlkb owlkb, OWLReasoner r, OWLOntology o )
@@ -1351,5 +1425,40 @@ public class Owlkb
       ;
     }
     return result;
+  }
+
+  public String naive_JSON_parse(String json, String key)
+  {
+    return naive_JSON_parse( json, key, '\"', '\"' );
+  }
+
+  public String naive_JSON_parse_list(String json, String key)
+  {
+    return naive_JSON_parse(json, key, '[', ']');
+  }
+
+  public String naive_JSON_parse(String json, String key, char start, char end )
+  {
+    String needle = "\"" + key + "\":";
+    int pos = json.indexOf(needle);
+
+    if ( pos == -1 )
+      return null;
+
+    pos += needle.length();
+
+    pos = json.indexOf(start, pos);
+
+    if ( pos == -1 )
+      return null;
+
+    pos++;
+
+    int endpos = json.indexOf(end, pos);
+
+    if ( endpos == -1 )
+      return null;
+
+    return json.substring(pos,endpos);
   }
 }
