@@ -277,13 +277,22 @@ public class Owlkb
         response = compute_rdfstore_response( owlkb, o, iri, m, ec, r, req );
       else
       if ( srvtype.equals("apinatomy") )
+      {
         response = compute_apinatomy_response( owlkb, o, iri, m, r, req );
+        fJson = 1;
+      }
       else
       if ( srvtype.equals("shortestpath") )
+      {
         response = compute_shortestpath_response( owlkb, o, iri, m, r, req );
+        fJson = 1;
+      }
       else
       if ( srvtype.equals("subgraph") )
+      {
         response = compute_subgraph_response( owlkb, o, iri, m, r, req );
+        fJson = 1;
+      }
       else
       try
       {
