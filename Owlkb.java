@@ -433,7 +433,7 @@ public class Owlkb
 
       logstring( "Transmitting response..." );
 
-      send_response( t, response );
+      send_response( t, response, fJson );
 
       /*
        * Measure computation time in ms.
@@ -454,12 +454,12 @@ public class Owlkb
 
       if ( lower.contains(" or ") )
       {
-        send_response( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL." );
+        send_response( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL.", 0 );
         return true;
       }
       if ( lower.contains(" not ") || lower.substring(0,4).equals("not ") )
       {
-        send_response( t, "Negation ('not') is forbidden because it would make the ontology non-EL." );
+        send_response( t, "Negation ('not') is forbidden because it would make the ontology non-EL.", 0 );
         return true;
       }
 
@@ -471,12 +471,17 @@ public class Owlkb
     }
   }
 
-  public void send_response( HttpExchange t, String response ) throws IOException
+  public void send_response( HttpExchange t, String response, int isJson ) throws IOException
   {
       Headers h = t.getResponseHeaders();
       h.add("Cache-Control", "no-cache, no-store, must-revalidate");
       h.add("Pragma", "no-cache");
       h.add("Expires", "0");
+
+      if ( isJson == 1 )
+      {
+        h.add("Content-Type", "application/json");
+      }
 
       t.sendResponseHeaders(200,response.getBytes().length);
       OutputStream os = t.getResponseBody();
@@ -906,13 +911,13 @@ public class Owlkb
       }
       catch(Exception e)
       {
-        send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file." );
+        send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file.", 0 );
         return;
       }
 
       the_html = the_html.replace("@JAVASCRIPT", "<script type='text/javascript'>"+the_js+"</script>");
 
-      send_response( t, the_html );
+      send_response( t, the_html, 0 );
     }
     catch(Exception e)
     {
