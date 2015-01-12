@@ -198,6 +198,7 @@ public class Owlkb
     server.createContext("/rdfstore", new NetHandler(this, "rdfstore", r, manager, ont, entityChecker, iri));
     server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
     server.createContext("/shortestpath", new NetHandler(this, "shortestpath", r, manager, ont, entityChecker, iri));
+    server.createContext("/generate-triples", new NetHandler(this, "generate-triples", r, manager, ont, entityChecker, iri));
     server.createContext("/subgraph", new NetHandler(this, "subgraph", r, manager, ont, entityChecker, iri));
 
     server.createContext("/gui", new NetHandler(this, "gui", r, manager, ont, entityChecker, iri));
@@ -279,6 +280,16 @@ public class Owlkb
       if ( srvtype.equals("apinatomy") )
       {
         response = compute_apinatomy_response( owlkb, o, iri, m, r, req );
+        fJson = 1;
+      }
+      else
+      if ( srvtype.equals("generate-triples") )
+      {
+        if ( t.getRemoteAddress().getAddress().isLoopbackAddress() )
+          response = compute_generate_triples_response( owlkb, o, iri, m, r, req );
+        else
+          response = "{\"error\": \"Only requests originating from localhost can run generate-triples\"}";
+
         fJson = 1;
       }
       else
@@ -1120,6 +1131,83 @@ public class Owlkb
       return jsonp_header + "?" + jsonp_footer;
     else
       return jsonp_header + feather_response + jsonp_footer;
+  }
+
+  public String compute_generate_triples_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  {
+    OWLReasoner r = reasoner;
+    PrintWriter writer;
+
+    try
+    {
+      writer = new PrintWriter( "triples.n3", "UTF-8" );
+    }
+    catch( Exception e )
+    {
+      return "{ \"error\": \"Could not open triples.n3 for writing\" }";
+    }
+
+    for ( OWLOntology ont : owlkb.imp_closure )
+    {
+      Set<OWLClass> classes = ont.getClassesInSignature();
+
+      for ( OWLClass c : classes )
+      {
+        NodeSet<OWLClass> subClasses = r.getSubClasses(c, true);
+        String cString = c.toStringID();
+
+        if ( cString.equals("") )
+          continue;
+
+        writer.println( "<" + cString + "> <http://open-physiology.org/#super-or-equal> <" + cString + "> ." );
+
+        for ( Node<OWLClass> subnode : subClasses )
+        {
+          OWLClass sub = subnode.getEntities().iterator().next();
+
+          if ( sub.isOWLNothing() )
+            continue;
+
+          writer.println( "<" + cString + "> <http://open-physiology.org/#super-or-equal> <" + sub.toStringID() + "> ." );
+        }
+
+        Set<OWLClassExpression> supers = c.getSuperClasses(ont);
+        for ( OWLClassExpression exp : supers )
+        {
+          if ( !(exp instanceof OWLObjectSomeValuesFrom) )
+            continue;
+
+          OWLRestriction restrict = (OWLRestriction) exp;
+
+          Set<OWLObjectProperty> objprops = restrict.getObjectPropertiesInSignature();
+          boolean fBad = false;
+
+          for ( OWLObjectProperty objprop : objprops )
+          {
+            if ( !objprop.toStringID().equals( "http://purl.org/obo/owlapi/fma#regional_part_of" )
+            &&   !objprop.toStringID().equals( "http://purl.org/obo/owlapi/fma#constitutional_part_of" ) )
+            {
+              fBad = true;
+              break;
+            }
+          }
+          if ( fBad )
+            continue;
+
+          Set<OWLClass> classes_in_signature = restrict.getClassesInSignature();
+
+          for ( OWLClass class_in_signature : classes_in_signature )
+          {
+            writer.println( "<" + class_in_signature.toStringID() + "> <http://open-physiology.org/#super-or-equal> <" + cString + "> ." );
+            break;
+          }
+        }
+      }
+    }
+
+    writer.close();
+
+    return "{ \"result\": \"Triples saved to file triples.n3 in owlkb directory\" }";
   }
 
   public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
