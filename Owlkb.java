@@ -75,6 +75,8 @@ public class Owlkb
   public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
   public boolean help_only; // Whether to show helpscreen and exit.  Default: false
   public int port;          // Port number to listen on.  Default: 20080
+  public String sparql;     // URL of SPARQL endpoint
+  public boolean get_counts_from_feather; // For easy reversion in case SPARQL doesn't work
 
   /*
    * Variables to be initialized elsewhere than the command-line
@@ -746,8 +748,10 @@ public class Owlkb
     o.hd_save = true;
     o.kbNs = "http://www.ricordo.eu/ricordo.owl#RICORDO_";
     o.kbfilename = "/home/sarala/testkb/ricordo.owl";
+    o.sparql = null;
     o.help_only = false;
     o.port = 20080;
+    o.get_counts_from_feather = false;
 
     int i;
     String flag;
@@ -787,6 +791,11 @@ public class Owlkb
         System.out.println( "-uclsyntax true, or -uclsyntax false"                  );
         System.out.println( "(Specifies whether OWLKB understands UCL syntax)"      );
         System.out.println( "(Default: false)"                                      );
+        System.out.println( "------------------------------------"                  );
+        System.out.println( "-sparql <url base>"                                    );
+        System.out.println( "(Base of URL to use as SPARQL endpoint, to allow"      );
+        System.out.println( " interaction with a triple store.)"                    );
+        System.out.println( "(Default: null)"                                       );
         System.out.println( "------------------------------------"                  );
         System.out.println( "-help"                                                 );
         System.out.println( "(Displays this helpfile)"                              );
@@ -877,6 +886,21 @@ public class Owlkb
         {
           System.out.println( "What do you want the ontology's namespace to be?" );
           System.out.println( "Default: http://www.ricordo.eu/ricordo.owl#RICORDO_" );
+          o.help_only = true;
+          return;
+        }
+      }
+      else if ( flag.equals("sparql") )
+      {
+        if ( i+1 < args.length )
+        {
+          System.out.println( "Using "+args[i+1]+" as base of URL of SPARQL endpoint." );
+          o.sparql = args[++i];
+        }
+        else
+        {
+          System.out.println( "Specify the base of the URL of the SPARQL endpoint you want to use." );
+          System.out.println( "Default: null (in which case OWLKB will not interact with SPARQL)" );
           o.help_only = true;
           return;
         }
@@ -1288,12 +1312,26 @@ public class Owlkb
       if ( the_label == null )
         the_label = shortform;
 
-      String feather_response = queryFeatherweight(shortform);
+      if ( owlkb.get_counts_from_feather )
+      {
+        String feather_response = queryFeatherweight(shortform);
 
-      if ( feather_response == null )
-        the_label = the_label + " (?)";
+        if ( feather_response == null )
+          the_label = the_label + " (?)";
+        else
+          the_label = the_label + " (" + feather_response + ")";
+      }
+      else if ( owlkb.sparql != null )
+      {
+        String sparql_response = query_sparql_for_count(shortform);
+
+        if ( sparql_response == null )
+          the_label = the_label + " (?)";
+        else
+          the_label = the_label + " (" + sparql_response + ")";
+      }
       else
-        the_label = the_label + " (" + feather_response + ")";
+        the_label = the_label + " (?)";
 
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
@@ -1348,6 +1386,44 @@ public class Owlkb
     {
       return null;
     }
+  }
+
+  public String query_sparql_for_count(String x)
+  {
+    StringBuilder sb = new StringBuilder();
+    sb.append( "SELECT COUNT(*) WHERE " );
+    sb.append( "{ " );
+      sb.append( "?s ?p ?o . " );
+      sb.append( "<http://purl.org/obo/owlapi/fma#"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
+      sb.append( "FILTER( ?p != <http://open-physiology.org/#super-or-equal> )" );
+    sb.append( "}" );
+
+    String sparqlcode = sb.toString();
+
+    try
+    {
+      sparqlcode = URLEncoder.encode(sparqlcode,"UTF-8");
+    }
+    catch(Exception e)
+    {
+      ;
+    }
+
+    String s = queryURL(sparql + sparqlcode);
+
+    int pos = s.indexOf( "\"value\": \"" );
+
+    if ( pos == -1 )
+      return null;
+
+    s = s.substring( pos + "\"value\": \"".length() );
+
+    pos = s.indexOf( '\"' );
+
+    if ( pos == -1 )
+      return null;
+
+    return s.substring( 0, pos );
   }
 
   public String queryFeatherweight(String x)
