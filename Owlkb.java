@@ -1394,7 +1394,14 @@ public class Owlkb
     sb.append( "SELECT COUNT(*) WHERE " );
     sb.append( "{ " );
       sb.append( "?s ?p ?o . " );
-      sb.append( "<http://purl.org/obo/owlapi/fma#"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
+
+      if ( x.length() >= 3 && x.substring(0,3).toLowerCase().equals("fma") )
+        sb.append( "<http://purl.org/obo/owlapi/fma#"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
+      else if ( x.length() >= 4 && x.substring(0,4).toLowerCase().equals("pkpd") )
+        sb.append( "<http://www.ddmore.org/ontologies/ontology/pkpd-ontology#"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
+      else
+        sb.append( "<"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
+
       sb.append( "FILTER( ?p != <http://open-physiology.org/#super-or-equal> )" );
     sb.append( "}" );
 
