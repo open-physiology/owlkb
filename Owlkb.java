@@ -1180,6 +1180,24 @@ public class Owlkb
         NodeSet<OWLClass> subClasses = r.getSubClasses(c, true);
         String cString = c.toStringID();
 
+        Set<OWLIndividual> inds = c.getIndividuals(ont);
+
+        for ( OWLIndividual ind : inds )
+        {
+          if ( !(ind instanceof OWLNamedIndividual) )
+            continue;
+
+          String iString = ind.asOWLNamedIndividual().getIRI().toString();
+
+          if ( iString.equals("") )
+            continue;
+
+          writer.println( "<" + iString + "> <http://open-physiology.org/#super-or-equal> <" + iString + "> ." );
+
+          if ( !cString.equals("") )
+            writer.println( "<" + cString + "> <http://open-physiology.org/#super-or-equal> <" + iString + "> ." );
+        }
+
         if ( cString.equals("") )
           continue;
 
