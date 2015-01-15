@@ -1164,11 +1164,11 @@ public class Owlkb
 
     try
     {
-      writer = new PrintWriter( "triples.n3", "UTF-8" );
+      writer = new PrintWriter( "triples.nt", "UTF-8" );
     }
     catch( Exception e )
     {
-      return "{ \"error\": \"Could not open triples.n3 for writing\" }";
+      return "{ \"error\": \"Could not open triples.nt for writing\" }";
     }
 
     for ( OWLOntology ont : owlkb.imp_closure )
@@ -1249,7 +1249,7 @@ public class Owlkb
 
     writer.close();
 
-    return "{ \"result\": \"Triples saved to file triples.n3 in owlkb directory\" }";
+    return "{ \"result\": \"Triples saved to file triples.nt in owlkb directory\" }";
   }
 
   public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
