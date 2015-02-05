@@ -1330,6 +1330,7 @@ public class Owlkb
       if ( the_label == null )
         the_label = shortform;
 
+      /*
       if ( owlkb.get_counts_from_feather )
       {
         String feather_response = queryFeatherweight(shortform);
@@ -1350,6 +1351,7 @@ public class Owlkb
       }
       else
         the_label = the_label + " (?)";
+      */
 
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
