@@ -70,7 +70,7 @@ public class Owlkb
    */
   public String rname;      // Reasoner name.  Default: "elk"
   public boolean hd_save;   // Whether to save changes to harddrive.  Default: true
-  public boolean ucl_syntax;// Whether to parse UCL syntax (by calling LOLS)
+  public String ucl_syntax; // Endpoint for UCL syntax server.  Default: null
   public String kbNs;       // Namespace for RICORDO_### terms.  Default: "http://www.ricordo.eu/ricordo.owl"
   public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
   public boolean help_only; // Whether to show helpscreen and exit.  Default: false
@@ -312,9 +312,10 @@ public class Owlkb
         OWLClassExpression exp;
         String Manchester_Error = "";
 
-        if ( owlkb.ucl_syntax )
+        if ( owlkb.ucl_syntax != null )
         {
-          String LOLS_reply = queryURL( "http://open-physiology.org:5052/uclsyntax/" + URLEncoder.encode(req,"UTF-8") );
+          String LOLS_reply = queryURL( owlkb.ucl_syntax + URLEncoder.encode(req,"UTF-8") );
+          //String LOLS_reply = queryURL( "http://open-physiology.org:5052/uclsyntax/" + URLEncoder.encode(req,"UTF-8") );
 
           if ( LOLS_reply == null )
           {
@@ -862,11 +863,19 @@ public class Owlkb
       {
         if ( i+1 < args.length && (args[i+1].equals("t") || args[i+1].equals("true")) )
         {
-          o.ucl_syntax = true;
-          System.out.println( "UCL Syntax: enabled" );
+          /*
+           * Backwards compatibility (originally uclsyntax was a boolean and open-physiology was hardcoded as the endpoint
+           */
+          o.ucl_syntax = "http://open-physiology.org:5052/uclsyntax/";
+          System.out.println( "UCL Syntax: endpoint set to http://open-physiology.org:5052/uclsyntax/" );
         }
         else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
-          o.ucl_syntax = false;
+          o.ucl_syntax = null;
+        else if ( i+1 < args.length )
+        {
+          o.ucl_syntax = args[i+1];
+          System.out.println( "UCL Syntax: endpoint set to " + o.ucl_syntax );
+        }
         else
         {
           System.out.println( "uclsyntax can be set to: true, false" );
