@@ -189,6 +189,7 @@ public class Owlkb
 
     HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/subhierarchy", new NetHandler(this, "subhierarchy", r, manager, ont, entityChecker, iri));
     server.createContext("/apinatomy", new NetHandler(this, "apinatomy", r, manager, ont, entityChecker, iri));
     server.createContext("/rtsubterms", new NetHandler(this, "rtsubterms", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
@@ -315,7 +316,6 @@ public class Owlkb
         if ( owlkb.ucl_syntax != null )
         {
           String LOLS_reply = queryURL( owlkb.ucl_syntax + URLEncoder.encode(req,"UTF-8") );
-          //String LOLS_reply = queryURL( "http://open-physiology.org:5052/uclsyntax/" + URLEncoder.encode(req,"UTF-8") );
 
           if ( LOLS_reply == null )
           {
@@ -390,6 +390,10 @@ public class Owlkb
               terms = getTerms(exp,r);
 
             response = compute_response( terms, fJson, false );
+          }
+          else if ( srvtype.equals("subhierarchy") )
+          {
+            response = compute_subhierarchy_response( exp, r );
           }
           else if ( srvtype.equals("rtsubterms") )
           {
@@ -575,6 +579,34 @@ public class Owlkb
     }
 
     return idList;
+  }
+
+  public String LabelByClass(OWLClass c)
+  {
+    OWLAnnotationProperty rdfslab = df.getRDFSLabel();
+    Set<OWLAnnotation> annots = null;
+    boolean fMatch = false;
+
+    for ( OWLOntology imp : imp_closure )
+    {
+      annots = c.getAnnotations( imp, rdfslab );
+      if ( !annots.isEmpty() )
+      {
+        fMatch = true;
+        break;
+      }
+    }
+
+    if ( !fMatch )
+      return null;
+
+    for ( OWLAnnotation a : annots )
+    {
+      if ( a.getValue() instanceof OWLLiteral )
+        return ((OWLLiteral)a.getValue()).getLiteral();
+    }
+
+    return null;
   }
 
   public ArrayList<String> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
@@ -1259,6 +1291,68 @@ public class Owlkb
     writer.close();
 
     return "{ \"result\": \"Triples saved to file triples.nt in owlkb directory\" }";
+  }
+
+  public String compute_subhierarchy_response( OWLClassExpression exp, OWLReasoner r )
+  {
+    StringBuilder sb = new StringBuilder();
+
+    sb.append( "{\n" );
+    append_subhierarchy( sb, exp, r, 1 );
+    sb.append( "}" );
+
+    return sb.toString();
+  }
+
+  public void append_subhierarchy( StringBuilder sb, OWLClassExpression exp, OWLReasoner r, int indent )
+  {
+    append_spaces( sb, indent );
+    sb.append( "\"subterms\":\n" );
+    append_spaces( sb, indent );
+    sb.append( "[\n" );
+
+    Set<Node<OWLClass>> nodes = r.getSubClasses( exp, true ).getNodes();
+    boolean isFirst = true;
+
+    for ( Node<OWLClass> node : nodes )
+    {
+      OWLClass c = node.getRepresentativeElement();
+
+      if ( c.isOWLNothing() )
+        continue;
+
+      if ( isFirst )
+        isFirst = false;
+      else
+        sb.append( ",\n" );
+
+      append_spaces( sb, indent + 1 );
+      sb.append( "{\n" );
+      append_spaces( sb, indent + 2 );
+      sb.append( "\"term\": \"" + shorturl(c.getIRI().toString()) + "\",\n" );
+
+      String label = LabelByClass( c );
+      if ( label != null )
+      {
+        append_spaces( sb, indent + 2 );
+        sb.append( "\"label\": \"" + escapeHTML(label) + "\",\n" );
+      }
+
+      append_subhierarchy( sb, c, r, indent+2 );
+
+      sb.append( "\n" );
+      append_spaces( sb, indent + 1 );
+      sb.append( "}" );
+    }
+
+    sb.append( "\n" );
+    append_spaces( sb, indent );
+    sb.append( "]" );
+  }
+
+  public void append_spaces( StringBuilder sb, int n )
+  {
+    sb.append( String.format( "%"+n+"s", "" ) );
   }
 
   public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
