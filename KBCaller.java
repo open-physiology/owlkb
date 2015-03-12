@@ -35,6 +35,14 @@ public class KBCaller
   }
 
   /*
+   * Get subterms of a given term, in a hierarchical JSON format
+   */
+  public String subhierarchy( String exp ) throws IOException
+  {
+    return launch_http( "/subhierarchy/" + encode( exp ) );
+  }
+
+  /*
    * Get all terms equivalent to given term
    */
   public String eqterms( String exp ) throws IOException
