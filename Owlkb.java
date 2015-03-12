@@ -1299,7 +1299,7 @@ public class Owlkb
 
     sb.append( "{\n" );
     append_subhierarchy( sb, exp, r, 1 );
-    sb.append( "}" );
+    sb.append( "\n}" );
 
     return sb.toString();
   }
