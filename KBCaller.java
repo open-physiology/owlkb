@@ -35,6 +35,17 @@ public class KBCaller
   }
 
   /*
+   * Get all sublings of given term.
+   * Term X is a subling of term Y if there is an immediate
+   * superterm Z of X such that Y is an immediate subterm
+   * of Z.
+   */
+  public String siblings( String exp ) throws IOException
+  {
+    return launch_http( "/siblings/" + encode( exp ) );
+  }
+
+  /*
    * Get subterms of a given term, in a hierarchical JSON format
    */
   public String subhierarchy( String exp ) throws IOException
