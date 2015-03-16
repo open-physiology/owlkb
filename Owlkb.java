@@ -189,6 +189,7 @@ public class Owlkb
 
     HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/siblings", new NetHandler(this, "siblings", r, manager, ont, entityChecker, iri));
     server.createContext("/subhierarchy", new NetHandler(this, "subhierarchy", r, manager, ont, entityChecker, iri));
     server.createContext("/apinatomy", new NetHandler(this, "apinatomy", r, manager, ont, entityChecker, iri));
     server.createContext("/rtsubterms", new NetHandler(this, "rtsubterms", r, manager, ont, entityChecker, iri));
@@ -374,6 +375,7 @@ public class Owlkb
         else
         {
           if ( srvtype.equals("subterms")
+          ||   srvtype.equals("siblings")
           ||   srvtype.equals("eqterms")
           ||   srvtype.equals("instances")
           ||   srvtype.equals("terms") )
@@ -382,6 +384,8 @@ public class Owlkb
 
             if ( srvtype.equals("subterms") )
               terms = getSubTerms(exp,r,false,false);
+            else if ( srvtype.equals("siblings") )
+              terms = getSiblings(exp,r,false,false);
             else if ( srvtype.equals("eqterms") )
               terms = addTerm(exp, r, m, o, iri, owlkb);
             else if ( srvtype.equals("instances") )
@@ -545,6 +549,23 @@ public class Owlkb
     }
 
     return idList;
+  }
+
+  private ArrayList<String> getSiblings(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct )
+  {
+    Set<Node<OWLClass>> parentnodes = r.getSuperClasses( exp, true ).getNodes();
+    HashSet<String> sibs = new HashSet<String>();
+
+    for ( Node<OWLClass> pnode : parentnodes )
+    {
+      OWLClass parent = pnode.getRepresentativeElement();
+      NodeSet<OWLClass> childnodes = r.getSubClasses( parent, true );
+
+      for ( OWLClass c : childnodes.getFlattened() )
+        sibs.add( c.getIRI().toString() );
+    }
+
+    return new ArrayList<String>(sibs);
   }
 
   private ArrayList<String> getInstances(OWLClassExpression exp, OWLReasoner r)
