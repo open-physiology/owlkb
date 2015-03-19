@@ -258,6 +258,18 @@ public class Owlkb
       String response;
 
       String req = t.getRequestURI().toString().substring(2+srvtype.length());
+
+      Map<String,String> args;
+      int qmark = req.indexOf("?");
+      if ( qmark != -1 )
+      {
+        String raw_args = req.substring(qmark+1);
+        req = req.substring(0,qmark);
+        args = get_args( raw_args );
+      }
+      else
+        args = new HashMap<String,String>();
+
       req = java.net.URLDecoder.decode(req, "UTF-8");
 
       if ( check_for_non_EL( req, t ) )
@@ -462,6 +474,13 @@ public class Owlkb
         response = "There was an error getting the results.";
       }
 
+      String callback = args.get("callback"); // JSONP support
+      if ( callback != null )
+      {
+        String jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
+        response = jsonp_header + response + ");";
+      }
+
       logstring( "Transmitting response..." );
 
       send_response( t, response, fJson );
@@ -510,9 +529,7 @@ public class Owlkb
       h.add("Expires", "0");
 
       if ( isJson == 1 )
-      {
         h.add("Content-Type", "application/json");
-      }
 
       t.sendResponseHeaders(200,response.getBytes().length);
       OutputStream os = t.getResponseBody();
@@ -1187,63 +1204,25 @@ public class Owlkb
 
   public String compute_subgraph_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
-    String jsonp_header = "", jsonp_footer = "", blank_response = "[]";
-
-    int qmark = req.indexOf("?");
-    if ( qmark != -1 )
-    {
-      String raw_args = req.substring(qmark+1);
-      req = req.substring(0,qmark);
-
-      Map<String, String> args = get_args( raw_args );
-
-      String callback = args.get("callback");
-      if ( callback != null )
-      {
-        jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
-        jsonp_footer = ");";
-        blank_response = jsonp_header + "[]" + jsonp_footer;
-      }
-    }
-
     req = "," + req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
 
     String feather_response = queryFeather("subgraph", req);
 
     if ( feather_response == null )
-      return jsonp_header + "?" + jsonp_footer;
+      return "?";
     else
-      return jsonp_header + feather_response + jsonp_footer;
+      return feather_response;
   }
 
   public String compute_shortestpath_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
-    String jsonp_header = "", jsonp_footer = "", blank_response = "[]";
-
-    int qmark = req.indexOf("?");
-    if ( qmark != -1 )
-    {
-      String raw_args = req.substring(qmark+1);
-      req = req.substring(0,qmark);
-
-      Map<String, String> args = get_args( raw_args );
-
-      String callback = args.get("callback");
-      if ( callback != null )
-      {
-        jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
-        jsonp_footer = ");";
-        blank_response = jsonp_header + "[]" + jsonp_footer;
-      }
-    }
-
     req = req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
     String feather_response = queryFeather("shortpath", req);
 
     if ( feather_response == null )
-      return jsonp_header + "?" + jsonp_footer;
+      return "?";
     else
-      return jsonp_header + feather_response + jsonp_footer;
+      return feather_response;
   }
 
   public String compute_generate_triples_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
@@ -1408,24 +1387,6 @@ public class Owlkb
     OWLAnnotationProperty rdfslab = owlkb.df.getRDFSLabel();
     String response = "[\n";
     boolean isFirstResult = true;
-    String jsonp_header = "", jsonp_footer = "", blank_response = "[]";
-
-    int qmark = req.indexOf("?");
-    if ( qmark != -1 )
-    {
-      String raw_args = req.substring(qmark+1);
-      req = req.substring(0,qmark);
-
-      Map<String, String> args = get_args( raw_args );
-
-      String callback = args.get("callback");
-      if ( callback != null )
-      {
-        jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
-        jsonp_footer = ");";
-        blank_response = jsonp_header + "[]" + jsonp_footer;
-      }
-    }
 
     req = req.replace("fma:", "FMA_");
 
@@ -1435,17 +1396,17 @@ public class Owlkb
      * Max size chosen based on FMA's most prolific class, FMA_21792 ("Fascia of muscle"), which has 222 subs
      */
     if ( shortforms.size() > 250 )
-      return blank_response;
+      return "[]";
 
     if ( req.substring(0,6).equals( "24tile" ) )
     {
       try
       {
-        return jsonp_header + (new Scanner(new File("24tiles.dat")).useDelimiter("\\A").next()) + jsonp_footer;
+        return new Scanner(new File("24tiles.dat")).useDelimiter("\\A").next();
       }
       catch(Exception e)
       {
-        return blank_response;
+        return "[]";
       }
     }
 
@@ -1453,14 +1414,13 @@ public class Owlkb
     {
       try
       {
-        return jsonp_header + (new Scanner(new File("pkpdroot.dat")).useDelimiter("\\A").next()) + jsonp_footer;
+        return new Scanner(new File("pkpdroot.dat")).useDelimiter("\\A").next();
       }
       catch(Exception e)
       {
-        return blank_response;
+        return "[]";
       }
     }
-
 
     for ( String shortform : shortforms )
     {
@@ -1480,29 +1440,6 @@ public class Owlkb
 
       if ( the_label == null )
         the_label = shortform;
-
-      /*
-      if ( owlkb.get_counts_from_feather )
-      {
-        String feather_response = queryFeatherweight(shortform);
-
-        if ( feather_response == null )
-          the_label = the_label + " (?)";
-        else
-          the_label = the_label + " (" + feather_response + ")";
-      }
-      else if ( owlkb.sparql != null )
-      {
-        String sparql_response = query_sparql_for_count(shortform);
-
-        if ( sparql_response == null )
-          the_label = the_label + " (?)";
-        else
-          the_label = the_label + " (" + sparql_response + ")";
-      }
-      else
-        the_label = the_label + " (?)";
-      */
 
       response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
 
@@ -1529,7 +1466,8 @@ public class Owlkb
     response = response.replace( "FMA_", "fma:" );
 
     response += "\n]";
-    return jsonp_header + response + jsonp_footer;
+
+    return response;
   }
 
   public String queryURL(String urlstring)
