@@ -1017,7 +1017,7 @@ public class Owlkb
     {
       try
       {
-        the_html = new Scanner(new File("gui.php")).useDelimiter("\\A").next();
+        the_html = new Scanner(new File("gui.html")).useDelimiter("\\A").next();
         the_js = new Scanner(new File("gui.js")).useDelimiter("\\A").next();
       }
       catch(Exception e)
