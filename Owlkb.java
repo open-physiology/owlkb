@@ -604,7 +604,7 @@ public class Owlkb
           if ( label == null )
             label = "null";
 
-          String jsobj = "http://_#{\"sibling\":\""+sibID+"\", \"label\":\""+label+"\", \"parent\":\""+pID+"\", \"parent_label\":\""+plabel+"\"}";
+          String jsobj = "{\"sibling\":\""+sibID+"\", \"label\":\""+label+"\", \"parent\":\""+pID+"\", \"parent_label\":\""+plabel+"\"}";
           retval.add(jsobj);
         }
       }
