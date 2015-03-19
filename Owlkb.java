@@ -249,11 +249,8 @@ public class Owlkb
       }
 
       Headers requestHeaders = t.getRequestHeaders();
-      int fJson;
-      if ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") )
-        fJson = 1;
-      else
-        fJson = 0;
+      boolean fJson = ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") );
+      boolean verbose;
 
       String response;
 
@@ -266,9 +263,18 @@ public class Owlkb
         String raw_args = req.substring(qmark+1);
         req = req.substring(0,qmark);
         args = get_args( raw_args );
+
+        if ( !fJson && args.containsKey( "json" ) )
+          fJson = true;
+
+        if ( args.containsKey( "verbose" ) )
+          verbose = true;
       }
       else
+      {
         args = new HashMap<String,String>();
+        verbose = false;
+      }
 
       req = java.net.URLDecoder.decode(req, "UTF-8");
 
@@ -296,7 +302,7 @@ public class Owlkb
       if ( srvtype.equals("apinatomy") )
       {
         response = compute_apinatomy_response( owlkb, o, iri, m, r, req );
-        fJson = 1;
+        fJson = true;
       }
       else
       if ( srvtype.equals("generate-triples") )
@@ -306,19 +312,19 @@ public class Owlkb
         else
           response = "{\"error\": \"Only requests originating from localhost can run generate-triples\"}";
 
-        fJson = 1;
+        fJson = true;
       }
       else
       if ( srvtype.equals("shortestpath") )
       {
         response = compute_shortestpath_response( owlkb, o, iri, m, r, req );
-        fJson = 1;
+        fJson = true;
       }
       else
       if ( srvtype.equals("subgraph") )
       {
         response = compute_subgraph_response( owlkb, o, iri, m, r, req );
-        fJson = 1;
+        fJson = true;
       }
       else
       try
@@ -504,12 +510,12 @@ public class Owlkb
 
       if ( lower.contains(" or ") )
       {
-        send_response( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL.", 0 );
+        send_response( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL.", false );
         return true;
       }
       if ( lower.contains(" not ") || lower.substring(0,4).equals("not ") )
       {
-        send_response( t, "Negation ('not') is forbidden because it would make the ontology non-EL.", 0 );
+        send_response( t, "Negation ('not') is forbidden because it would make the ontology non-EL.", false );
         return true;
       }
 
@@ -521,14 +527,14 @@ public class Owlkb
     }
   }
 
-  public void send_response( HttpExchange t, String response, int isJson ) throws IOException
+  public void send_response( HttpExchange t, String response, boolean fJson ) throws IOException
   {
       Headers h = t.getResponseHeaders();
       h.add("Cache-Control", "no-cache, no-store, must-revalidate");
       h.add("Pragma", "no-cache");
       h.add("Expires", "0");
 
-      if ( isJson == 1 )
+      if ( fJson )
         h.add("Content-Type", "application/json");
 
       t.sendResponseHeaders(200,response.getBytes().length);
@@ -793,11 +799,11 @@ public class Owlkb
     System.out.println( x );
   }
 
-  public String compute_response( ArrayList<String> terms, int fJson, boolean longURI )
+  public String compute_response( ArrayList<String> terms, boolean fJson, boolean longURI )
   {
     String x;
 
-    if ( fJson == 1 )
+    if ( fJson )
     {
       x = "[";
       int fencepost = 0;
@@ -827,7 +833,7 @@ public class Owlkb
     return x;
   }
 
-  public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, int fJson )
+  public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, boolean fJson )
   {
     ArrayList<String> terms = getSubTerms( exp, r, false, false );
 
@@ -1061,13 +1067,13 @@ public class Owlkb
       }
       catch(Exception e)
       {
-        send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file.", 0 );
+        send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file.", false );
         return;
       }
 
       the_html = the_html.replace("@JAVASCRIPT", "<script type='text/javascript'>"+the_js+"</script>");
 
-      send_response( t, the_html, 0 );
+      send_response( t, the_html, false );
     }
     catch(Exception e)
     {
@@ -1075,13 +1081,13 @@ public class Owlkb
     }
   }
 
-  public String compute_addlabel_response( Owlkb owlkb, OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, int fJson )
+  public String compute_addlabel_response( Owlkb owlkb, OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, boolean fJson )
   {
     int eqpos = req.indexOf('=');
 
     if ( eqpos == -1 || eqpos == 0 )
     {
-      if ( fJson == 1 )
+      if ( fJson )
         return "{'syntax error'}";
       else
         return "Invalid syntax.  Syntax: /addlabel/iri=label, e.g.: /addlabel/RICORDO_123=volume of blood";
@@ -1092,7 +1098,7 @@ public class Owlkb
 
     if ( iri.length() < "RICORDO_".length() || !iri.substring(0,"RICORDO_".length()).equals("RICORDO_") )
     {
-      if ( fJson == 1 )
+      if ( fJson )
         return "{'non-ricordo class error'}";
       else
         return "Only RICORDO classes can have labels added to them through OWLKB.";
@@ -1100,7 +1106,7 @@ public class Owlkb
 
     if ( label.trim().equals("") )
     {
-      if ( fJson == 1 )
+      if ( fJson )
         return "{'blank label error'}";
       else
         return "Blank labels are not allowed.";
@@ -1111,7 +1117,7 @@ public class Owlkb
 
     if ( e == null || e.isOWLClass() == false )
     {
-      if ( fJson == 1 )
+      if ( fJson )
         return "{'class not found error'}";
       else
         return "The specified class could not be found.  Please make sure you're using the shortform of the iri, e.g., RICORDO_123 instead of http://website.com/RICORDO_123";
@@ -1126,7 +1132,7 @@ public class Owlkb
         if ( a.getValue() instanceof OWLLiteral )
         {
           if ( ((OWLLiteral)a.getValue()).getLiteral().equals(label) )
-            return (fJson == 1) ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
+            return fJson ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
         }
       }
     }
@@ -1138,7 +1144,7 @@ public class Owlkb
 
     maybe_save_ontology( owlkb, o, ontology_iri, m );
 
-    return (fJson == 1) ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
+    return fJson ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
   }
 
   public void maybe_save_ontology( Owlkb owlkb, OWLOntology ont, IRI iri, OWLOntologyManager m )
@@ -1196,7 +1202,7 @@ public class Owlkb
     {
       ArrayList<String> terms = getSubTerms(exp, r, true, false);
 
-      return compute_response( terms, 1, true );
+      return compute_response( terms, true, true );
     }
 
     return req;
