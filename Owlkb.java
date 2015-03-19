@@ -555,17 +555,44 @@ public class Owlkb
   {
     Set<Node<OWLClass>> parentnodes = r.getSuperClasses( exp, true ).getNodes();
     HashSet<String> sibs = new HashSet<String>();
+    ArrayList<String> retval = new ArrayList<String>();
 
     for ( Node<OWLClass> pnode : parentnodes )
     {
       OWLClass parent = pnode.getRepresentativeElement();
       NodeSet<OWLClass> childnodes = r.getSubClasses( parent, true );
 
+      String plabel = LabelByClass(parent);
+
+      if ( plabel == null )
+        plabel = "null";
+
+      String pID = shorturl(parent.getIRI().toString());
+
       for ( OWLClass c : childnodes.getFlattened() )
-        sibs.add( c.getIRI().toString() );
+      {
+        String sibID = shorturl(c.getIRI().toString());
+
+        if ( sibs.contains( sibID ) )
+          continue;
+
+        sibs.add( sibID );
+
+        String label = LabelByClass(c);
+
+        if ( label == null )
+          label = "null";
+
+        /*
+         * Leading http://_# is a hack to get past shorturl.
+         * To do: refactor all this
+         */
+        String verbose = "http://_#{\"sibling\":\""+sibID+"\", \"label\":\""+label+"\", \"parent\":\""+pID+"\", \"parent_label\":\""+plabel+"\"}";
+        retval.add(verbose);
+      }
     }
 
-    return new ArrayList<String>(sibs);
+    return retval;
   }
 
   private ArrayList<String> getInstances(OWLClassExpression exp, OWLReasoner r)
