@@ -99,7 +99,7 @@ public class Owlkb
    */
   public void run(String [] args) throws Exception
   {
-    init_owlkb(this,args);
+    init_owlkb(args);
 
     if ( help_only == true )
       return;
@@ -188,24 +188,24 @@ public class Owlkb
     logstring( "Initiating server...");
 
     HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
-    server.createContext("/subterms", new NetHandler(this, "subterms", r, manager, ont, entityChecker, iri));
-    server.createContext("/siblings", new NetHandler(this, "siblings", r, manager, ont, entityChecker, iri));
-    server.createContext("/subhierarchy", new NetHandler(this, "subhierarchy", r, manager, ont, entityChecker, iri));
-    server.createContext("/apinatomy", new NetHandler(this, "apinatomy", r, manager, ont, entityChecker, iri));
-    server.createContext("/rtsubterms", new NetHandler(this, "rtsubterms", r, manager, ont, entityChecker, iri));
-    server.createContext("/eqterms", new NetHandler(this, "eqterms", r, manager, ont, entityChecker, iri));
-    server.createContext("/addlabel", new NetHandler(this, "addlabel", r, manager, ont, entityChecker, iri));
-    server.createContext("/terms", new NetHandler(this, "terms", r, manager, ont, entityChecker, iri));
-    server.createContext("/instances", new NetHandler(this, "instances", r, manager, ont, entityChecker, iri));
-    server.createContext("/labels", new NetHandler(this, "labels", r, manager, ont, entityChecker, iri));
-    server.createContext("/search", new NetHandler(this, "search", r, manager, ont, entityChecker, iri));
-    server.createContext("/rdfstore", new NetHandler(this, "rdfstore", r, manager, ont, entityChecker, iri));
-    server.createContext("/test", new NetHandler(this, "test", r, manager, ont, entityChecker, iri));
-    server.createContext("/shortestpath", new NetHandler(this, "shortestpath", r, manager, ont, entityChecker, iri));
-    server.createContext("/generate-triples", new NetHandler(this, "generate-triples", r, manager, ont, entityChecker, iri));
-    server.createContext("/subgraph", new NetHandler(this, "subgraph", r, manager, ont, entityChecker, iri));
+    server.createContext("/subterms", new NetHandler("subterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/siblings", new NetHandler("siblings", r, manager, ont, entityChecker, iri));
+    server.createContext("/subhierarchy", new NetHandler("subhierarchy", r, manager, ont, entityChecker, iri));
+    server.createContext("/apinatomy", new NetHandler("apinatomy", r, manager, ont, entityChecker, iri));
+    server.createContext("/rtsubterms", new NetHandler("rtsubterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/eqterms", new NetHandler("eqterms", r, manager, ont, entityChecker, iri));
+    server.createContext("/addlabel", new NetHandler("addlabel", r, manager, ont, entityChecker, iri));
+    server.createContext("/terms", new NetHandler("terms", r, manager, ont, entityChecker, iri));
+    server.createContext("/instances", new NetHandler("instances", r, manager, ont, entityChecker, iri));
+    server.createContext("/labels", new NetHandler("labels", r, manager, ont, entityChecker, iri));
+    server.createContext("/search", new NetHandler("search", r, manager, ont, entityChecker, iri));
+    server.createContext("/rdfstore", new NetHandler("rdfstore", r, manager, ont, entityChecker, iri));
+    server.createContext("/test", new NetHandler("test", r, manager, ont, entityChecker, iri));
+    server.createContext("/shortestpath", new NetHandler("shortestpath", r, manager, ont, entityChecker, iri));
+    server.createContext("/generate-triples", new NetHandler("generate-triples", r, manager, ont, entityChecker, iri));
+    server.createContext("/subgraph", new NetHandler("subgraph", r, manager, ont, entityChecker, iri));
 
-    server.createContext("/gui", new NetHandler(this, "gui", r, manager, ont, entityChecker, iri));
+    server.createContext("/gui", new NetHandler("gui", r, manager, ont, entityChecker, iri));
 
     server.setExecutor(null);
     server.start();
@@ -221,7 +221,6 @@ public class Owlkb
 
   class NetHandler implements HttpHandler
   {
-    Owlkb owlkb;
     String srvtype;
     OWLReasoner r;
     OWLOntologyManager m;
@@ -229,9 +228,8 @@ public class Owlkb
     OWLEntityChecker ec;
     IRI iri;
 
-    public NetHandler(Owlkb owlkb, String srvtype, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, IRI iri)
+    public NetHandler(String srvtype, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, IRI iri)
     {
-      this.owlkb = owlkb;
       this.srvtype = srvtype;
       this.r = r;
       this.m = m;
@@ -286,7 +284,7 @@ public class Owlkb
 
       if ( srvtype.equals("labels") || srvtype.equals("search") )
       {
-        ArrayList<String> terms = (srvtype.equals("labels") ? getLabels( req, o, owlkb ) : SearchByLabel( req, o, owlkb ));
+        ArrayList<String> terms = (srvtype.equals("labels") ? getLabels( req, o ) : SearchByLabel( req, o ));
         if ( terms == null || terms.isEmpty() )
           response = (srvtype.equals("labels") ? "No class by that shortform." : "No class with that label.");
         else
@@ -294,21 +292,21 @@ public class Owlkb
       }
       else
       if ( srvtype.equals("addlabel") )
-        response = compute_addlabel_response( owlkb, o, iri, m, req, fJson );
+        response = compute_addlabel_response( o, iri, m, req, fJson );
       else
       if ( srvtype.equals("rdfstore") )
-        response = compute_rdfstore_response( owlkb, o, iri, m, ec, r, req );
+        response = compute_rdfstore_response( o, iri, m, ec, r, req );
       else
       if ( srvtype.equals("apinatomy") )
       {
-        response = compute_apinatomy_response( owlkb, o, iri, m, r, req );
+        response = compute_apinatomy_response( o, iri, m, r, req );
         fJson = true;
       }
       else
       if ( srvtype.equals("generate-triples") )
       {
         if ( t.getRemoteAddress().getAddress().isLoopbackAddress() )
-          response = compute_generate_triples_response( owlkb, o, iri, m, r, req );
+          response = compute_generate_triples_response( o, iri, m, r, req );
         else
           response = "{\"error\": \"Only requests originating from localhost can run generate-triples\"}";
 
@@ -317,13 +315,13 @@ public class Owlkb
       else
       if ( srvtype.equals("shortestpath") )
       {
-        response = compute_shortestpath_response( owlkb, o, iri, m, r, req );
+        response = compute_shortestpath_response( o, iri, m, r, req );
         fJson = true;
       }
       else
       if ( srvtype.equals("subgraph") )
       {
-        response = compute_subgraph_response( owlkb, o, iri, m, r, req );
+        response = compute_subgraph_response( o, iri, m, r, req );
         fJson = true;
       }
       else
@@ -332,9 +330,9 @@ public class Owlkb
         OWLClassExpression exp;
         String Manchester_Error = "";
 
-        if ( owlkb.ucl_syntax != null )
+        if ( ucl_syntax != null )
         {
-          String LOLS_reply = queryURL( owlkb.ucl_syntax + URLEncoder.encode(req,"UTF-8") );
+          String LOLS_reply = queryURL( ucl_syntax + URLEncoder.encode(req,"UTF-8") );
 
           if ( LOLS_reply == null )
           {
@@ -405,7 +403,7 @@ public class Owlkb
             else if ( srvtype.equals("siblings") )
               terms = getSiblings(exp,r,false,false);
             else if ( srvtype.equals("eqterms") )
-              terms = addTerm(exp, r, m, o, iri, owlkb);
+              terms = addTerm(exp, r, m, o, iri );
             else if ( srvtype.equals("instances") )
               terms = getInstances(exp,r);
             else if ( srvtype.equals("terms") )
@@ -427,7 +425,7 @@ public class Owlkb
 
             try
             {
-              terms = addTerm(exp, r, m, o, iri, owlkb);
+              terms = addTerm(exp, r, m, o, iri );
             }
             catch(Exception e)
             {
@@ -680,21 +678,21 @@ public class Owlkb
     return null;
   }
 
-  public ArrayList<String> getLabels(String shortform, OWLOntology o, Owlkb owlkb)
+  public ArrayList<String> getLabels(String shortform, OWLOntology o )
   {
-    OWLEntity e = owlkb.shorts.getEntity(shortform);
+    OWLEntity e = shorts.getEntity(shortform);
     ArrayList<String> idList = new ArrayList<String>();
 
     if ( e == null || e.isOWLClass() == false )
       return null;
 
-    OWLAnnotationProperty rdfslab = owlkb.df.getRDFSLabel();
+    OWLAnnotationProperty rdfslab = df.getRDFSLabel();
 
     Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab );
 
     if ( annots.isEmpty() )
     {
-      for ( OWLOntology imp : owlkb.imp_closure )
+      for ( OWLOntology imp : imp_closure )
       {
         annots = e.getAnnotations( imp, rdfslab );
         if ( !annots.isEmpty() )
@@ -714,9 +712,9 @@ public class Owlkb
     return idList;
   }
 
-  public ArrayList<String> SearchByLabel(String label, OWLOntology o, Owlkb owlkb)
+  public ArrayList<String> SearchByLabel(String label, OWLOntology o )
   {
-    Set<OWLEntity> ents = owlkb.annovider.getEntities(label);
+    Set<OWLEntity> ents = annovider.getEntities(label);
     ArrayList<String> idList = new ArrayList<String>();
 
     if ( ents == null || ents.isEmpty()==true )
@@ -727,7 +725,7 @@ public class Owlkb
       if ( e.isOWLClass() == false || e.asOWLClass().isAnonymous() == true )
         continue;
 
-      idList.add( owlkb.shorts.getShortForm(e) );
+      idList.add( shorts.getShortForm(e) );
     }
 
     return idList;
@@ -743,13 +741,13 @@ public class Owlkb
     return idList;
   }
 
-  public ArrayList<String> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, Owlkb owlkb)
+  public ArrayList<String> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri )
   {
     ArrayList<String> idList = getEquivalentTerms(exp,r);
     if(idList.isEmpty())
     {
       String ricordoid = String.valueOf(System.currentTimeMillis());
-      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(owlkb.kbNs + ricordoid));
+      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(kbNs + ricordoid));
 
       OWLAxiom axiom = mgr.getOWLDataFactory().getOWLEquivalentClassesAxiom(newowlclass, exp);
       Set<OWLAxiom> axiomSet = new HashSet<OWLAxiom>();
@@ -757,10 +755,10 @@ public class Owlkb
 
       mgr.addAxioms(ont,axiomSet);
 
-      if ( owlkb.rname == "elk" )
+      if ( rname == "elk" )
         r.flush();
 
-      maybe_save_ontology( owlkb, ont, iri, mgr );
+      maybe_save_ontology( ont, iri, mgr );
 
       idList.add(newowlclass.toStringID());
       r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
@@ -840,22 +838,22 @@ public class Owlkb
     return "Not yet implemented";
   }
 
-  public void init_owlkb( Owlkb o, String [] args )
+  public void init_owlkb( String [] args )
   {
-    parse_commandline_arguments(this, args);
-    o.df = OWLManager.getOWLDataFactory();
+    parse_commandline_arguments(args);
+    df = OWLManager.getOWLDataFactory();
   }
 
-  public void parse_commandline_arguments( Owlkb o, String [] args )
+  public void parse_commandline_arguments( String [] args )
   {
-    o.rname = "elk";
-    o.hd_save = true;
-    o.kbNs = "http://www.ricordo.eu/ricordo.owl#RICORDO_";
-    o.kbfilename = "/home/sarala/testkb/ricordo.owl";
-    o.sparql = null;
-    o.help_only = false;
-    o.port = 20080;
-    o.get_counts_from_feather = false;
+    rname = "elk";
+    hd_save = true;
+    kbNs = "http://www.ricordo.eu/ricordo.owl#RICORDO_";
+    kbfilename = "/home/sarala/testkb/ricordo.owl";
+    sparql = null;
+    help_only = false;
+    port = 20080;
+    get_counts_from_feather = false;
 
     int i;
     String flag;
@@ -904,7 +902,7 @@ public class Owlkb
         System.out.println( "-help"                                                 );
         System.out.println( "(Displays this helpfile)"                              );
         System.out.println( "" );
-        o.help_only = true;
+        help_only = true;
         return;
       }
 
@@ -914,12 +912,12 @@ public class Owlkb
         {
           try
           {
-            o.port = Integer.parseInt(args[i+1]);
+            port = Integer.parseInt(args[i+1]);
           }
           catch( Exception e )
           {
             System.out.println( "Port must be a number." );
-            o.help_only = true;
+            help_only = true;
             return;
           }
           System.out.println( "Owlkb will listen on port "+args[++i] );
@@ -927,7 +925,7 @@ public class Owlkb
         else
         {
           System.out.println( "Which port do you want the server to listen on?" );
-          o.help_only = true;
+          help_only = true;
           return;
         }
       }
@@ -935,29 +933,29 @@ public class Owlkb
       {
         if ( i+1 < args.length && (args[i+1].equals("elk") || args[i+1].equals("hermit")) )
         {
-          o.rname = args[++i];
-          System.out.println( "Using "+o.rname+" as reasoner" );
+          rname = args[++i];
+          System.out.println( "Using "+rname+" as reasoner" );
         }
         else
         {
           System.out.println( "Valid reasoners are: ELK, HermiT" );
-          o.help_only = true;
+          help_only = true;
           return;
         }
       }
       else if ( flag.equals("hd") || flag.equals("hd_save") || flag.equals("save") )
       {
         if ( i+1 < args.length && (args[i+1].equals("t") || args[i+1].equals("true")) )
-          o.hd_save = true;
+          hd_save = true;
         else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
         {
-          o.hd_save = false;
+          hd_save = false;
           System.out.println( "Saving changes to hard drive: disabled." );
         }
         else
         {
           System.out.println( "hd_save can be set to: true, false" );
-          o.help_only = true;
+          help_only = true;
           return;
         }
         i++;
@@ -969,20 +967,20 @@ public class Owlkb
           /*
            * Backwards compatibility (originally uclsyntax was a boolean and open-physiology was hardcoded as the endpoint
            */
-          o.ucl_syntax = "http://open-physiology.org:5052/uclsyntax/";
+          ucl_syntax = "http://open-physiology.org:5052/uclsyntax/";
           System.out.println( "UCL Syntax: endpoint set to http://open-physiology.org:5052/uclsyntax/" );
         }
         else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
-          o.ucl_syntax = null;
+          ucl_syntax = null;
         else if ( i+1 < args.length )
         {
-          o.ucl_syntax = args[i+1];
-          System.out.println( "UCL Syntax: endpoint set to " + o.ucl_syntax );
+          ucl_syntax = args[i+1];
+          System.out.println( "UCL Syntax: endpoint set to " + ucl_syntax );
         }
         else
         {
           System.out.println( "uclsyntax can be set to: true, false" );
-          o.help_only = true;
+          help_only = true;
           return;
         }
         i++;
@@ -992,13 +990,13 @@ public class Owlkb
         if ( i+1 < args.length )
         {
           System.out.println( "Using "+args[i+1]+" as ontology namespace." );
-          o.kbNs = args[++i];
+          kbNs = args[++i];
         }
         else
         {
           System.out.println( "What do you want the ontology's namespace to be?" );
           System.out.println( "Default: http://www.ricordo.eu/ricordo.owl#RICORDO_" );
-          o.help_only = true;
+          help_only = true;
           return;
         }
       }
@@ -1007,13 +1005,13 @@ public class Owlkb
         if ( i+1 < args.length )
         {
           System.out.println( "Using "+args[i+1]+" as base of URL of SPARQL endpoint." );
-          o.sparql = args[++i];
+          sparql = args[++i];
         }
         else
         {
           System.out.println( "Specify the base of the URL of the SPARQL endpoint you want to use." );
           System.out.println( "Default: null (in which case OWLKB will not interact with SPARQL)" );
-          o.help_only = true;
+          help_only = true;
           return;
         }
       }
@@ -1022,12 +1020,12 @@ public class Owlkb
         if ( i+1 < args.length )
         {
           System.out.println( "Using "+args[i+1]+" as ontology filename." );
-          o.kbfilename = args[++i];
+          kbfilename = args[++i];
         }
         else
         {
           System.out.println( "Specify the filename of the ontology." );
-          o.help_only = true;
+          help_only = true;
           return;
         }
       }
@@ -1035,7 +1033,7 @@ public class Owlkb
       {
         System.out.println( "Unrecognized command line argument: "+args[i] );
         System.out.println( "For help, run with HELP as command line argument." );
-        o.help_only = true;
+        help_only = true;
         return;
       }
     }
@@ -1081,7 +1079,7 @@ public class Owlkb
     }
   }
 
-  public String compute_addlabel_response( Owlkb owlkb, OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, boolean fJson )
+  public String compute_addlabel_response( OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, boolean fJson )
   {
     int eqpos = req.indexOf('=');
 
@@ -1112,8 +1110,7 @@ public class Owlkb
         return "Blank labels are not allowed.";
     }
 
-    OWLEntity e = owlkb.shorts.getEntity(iri);
-    //ArrayList<String> idList = new ArrayList<String>();
+    OWLEntity e = shorts.getEntity(iri);
 
     if ( e == null || e.isOWLClass() == false )
     {
@@ -1123,7 +1120,7 @@ public class Owlkb
         return "The specified class could not be found.  Please make sure you're using the shortform of the iri, e.g., RICORDO_123 instead of http://website.com/RICORDO_123";
     }
 
-    Set<OWLAnnotation> annots = e.getAnnotations(o, owlkb.df.getRDFSLabel() );
+    Set<OWLAnnotation> annots = e.getAnnotations(o, df.getRDFSLabel() );
 
     if ( !annots.isEmpty() )
     {
@@ -1137,19 +1134,19 @@ public class Owlkb
       }
     }
 
-    OWLAnnotation a = owlkb.df.getOWLAnnotation( owlkb.df.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_LABEL.getIRI()), owlkb.df.getOWLLiteral(label) );
-    OWLAxiom axiom = owlkb.df.getOWLAnnotationAssertionAxiom(e.asOWLClass().getIRI(), a);
+    OWLAnnotation a = df.getOWLAnnotation( df.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_LABEL.getIRI()), df.getOWLLiteral(label) );
+    OWLAxiom axiom = df.getOWLAnnotationAssertionAxiom(e.asOWLClass().getIRI(), a);
     m.applyChange(new AddAxiom( o, axiom ));
     logstring( "Added rdfs:label "+label+" to class "+iri+"." );
 
-    maybe_save_ontology( owlkb, o, ontology_iri, m );
+    maybe_save_ontology( o, ontology_iri, m );
 
     return fJson ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
   }
 
-  public void maybe_save_ontology( Owlkb owlkb, OWLOntology ont, IRI iri, OWLOntologyManager m )
+  public void maybe_save_ontology( OWLOntology ont, IRI iri, OWLOntologyManager m )
   {
-    if ( owlkb.hd_save == true )
+    if ( hd_save )
     {
       logstring( "Saving ontology to hard drive..." );
 
@@ -1189,7 +1186,7 @@ public class Owlkb
     return exp;
   }
 
-  public String compute_rdfstore_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLEntityChecker ec, OWLReasoner r, String req )
+  public String compute_rdfstore_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLEntityChecker ec, OWLReasoner r, String req )
   {
     String x = full_iri_from_full_or_short_iri( req, o );
 
@@ -1208,7 +1205,7 @@ public class Owlkb
     return req;
   }
 
-  public String compute_subgraph_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String compute_subgraph_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     req = "," + req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
 
@@ -1220,7 +1217,7 @@ public class Owlkb
       return feather_response;
   }
 
-  public String compute_shortestpath_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String compute_shortestpath_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     req = req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
     String feather_response = queryFeather("shortpath", req);
@@ -1231,7 +1228,7 @@ public class Owlkb
       return feather_response;
   }
 
-  public String compute_generate_triples_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String compute_generate_triples_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     OWLReasoner r = reasoner;
     PrintWriter writer;
@@ -1245,7 +1242,7 @@ public class Owlkb
       return "{ \"error\": \"Could not open triples.nt for writing\" }";
     }
 
-    for ( OWLOntology ont : owlkb.imp_closure )
+    for ( OWLOntology ont : imp_closure )
     {
       Set<OWLClass> classes = ont.getClassesInSignature();
 
@@ -1388,9 +1385,9 @@ public class Owlkb
     sb.append( String.format( "%"+n+"s", "" ) );
   }
 
-  public String compute_apinatomy_response( Owlkb owlkb, OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String compute_apinatomy_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
-    OWLAnnotationProperty rdfslab = owlkb.df.getRDFSLabel();
+    OWLAnnotationProperty rdfslab = df.getRDFSLabel();
     String response = "[\n";
     boolean isFirstResult = true;
 
@@ -1430,7 +1427,7 @@ public class Owlkb
 
     for ( String shortform : shortforms )
     {
-      OWLEntity e = owlkb.shorts.getEntity(shortform);
+      OWLEntity e = shorts.getEntity(shortform);
 
       if ( e == null || (e.isOWLClass() == false && e.isOWLNamedIndividual() == false) )
         continue;
@@ -1442,7 +1439,7 @@ public class Owlkb
 
       response += "  {\n    \"_id\": \"" + escapeHTML(shortform) + "\",\n";
 
-      String the_label = get_one_rdfs_label( e, o, owlkb, rdfslab );
+      String the_label = get_one_rdfs_label( e, o, rdfslab );
 
       if ( the_label == null )
         the_label = shortform;
@@ -1451,7 +1448,7 @@ public class Owlkb
 
       if ( e.isOWLClass() )
       {
-        List<Apinatomy_Sub> subs = get_apinatomy_subs(e, owlkb, reasoner, o);
+        List<Apinatomy_Sub> subs = get_apinatomy_subs(e, reasoner, o);
         boolean isFirstSub = true;
 
         for ( Apinatomy_Sub sub : subs )
@@ -1562,7 +1559,7 @@ public class Owlkb
     return queryURL("http://open-physiology.org:5053/"+command+"/"+x);
   }
 
-  public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, Owlkb owlkb, OWLReasoner r, OWLOntology o )
+  public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, OWLReasoner r, OWLOntology o )
   {
     List<Apinatomy_Sub> response = new ArrayList<Apinatomy_Sub>();
 
@@ -1581,7 +1578,7 @@ public class Owlkb
         response.add( new Apinatomy_Sub( the_id, "subclass" ) );
     }
 
-    for ( OWLOntology imp : owlkb.imp_closure )
+    for ( OWLOntology imp : imp_closure )
     {
       Set<OWLClassExpression> supers = c.getSuperClasses(imp);
 
@@ -1644,13 +1641,13 @@ public class Owlkb
     }
   }
 
-  public String get_one_rdfs_label( OWLEntity e, OWLOntology o, Owlkb owlkb, OWLAnnotationProperty rdfslab )
+  public String get_one_rdfs_label( OWLEntity e, OWLOntology o, OWLAnnotationProperty rdfslab )
   {
     Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab);
 
     if ( annots.isEmpty() )
     {
-      for ( OWLOntology imp : owlkb.imp_closure )
+      for ( OWLOntology imp : imp_closure )
       {
         annots = e.getAnnotations( imp, rdfslab );
         if ( !annots.isEmpty() )
