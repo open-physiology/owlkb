@@ -405,7 +405,7 @@ public class Owlkb
             else if ( srvtype.equals("siblings") )
               terms = getSiblings(exp,r,false,false,verbose);
             else if ( srvtype.equals("eqterms") )
-              terms = addTerm(exp, r, m, o, iri );
+              terms = addTerm(exp,r,m,o,iri,verbose );
             else if ( srvtype.equals("instances") )
               terms = getInstances(exp,r,verbose);
             else if ( srvtype.equals("terms") )
@@ -418,55 +418,7 @@ public class Owlkb
             response = compute_subhierarchy_response( exp, r );
           }
           else if ( srvtype.equals("test") )
-          {
-            ArrayList<String> terms;
-
-            try
-            {
-              terms = addTerm(exp, r, m, o, iri );
-            }
-            catch(Exception e)
-            {
-              terms = null;
-            }
-
-            if ( terms == null )
-            {
-              response = "Malformed Manchester query";
-            }
-            else
-            {
-              response = "<h3>Term</h3><ul>";
-
-              for ( String termp : terms )
-              {
-                response += "<li>" + shorturl(termp) + "</li>";
-              }
-              response += "</ul>";
-
-              try
-              {
-                ArrayList<String> subs = getSubTerms(exp,r,false,false,false);
-
-                if ( subs.size() != 0 )
-                {
-                  response += "<h3>Subterms</h3><ul>";
-
-                  for ( String termp : subs )
-                  {
-                    response += "<li>"+shorturl(termp)+"</li>";
-                  }
-                  response += "</ul>";
-                }
-              }
-              catch(Exception e)
-              {
-                response = "There was an error getting the results";
-              }
-
-              response += "<h5>Runtime</h5>This computation took "+(System.nanoTime() - start_time) / 1000000+"ms to complete";
-            }
-          }
+            response = compute_demo_response( exp, r, m, o, iri, start_time, fJson, verbose );
           else
             response = "Unrecognized request";
         }
@@ -734,9 +686,9 @@ public class Owlkb
     return idList;
   }
 
-  public ArrayList<String> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri )
+  public ArrayList<String> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri, boolean verbose )
   {
-    ArrayList<String> idList = getEquivalentTerms(exp,r,false);
+    ArrayList<String> idList = getEquivalentTerms(exp,r,verbose);
     if(idList.isEmpty())
     {
       String ricordoid = String.valueOf(System.currentTimeMillis());
@@ -753,7 +705,7 @@ public class Owlkb
 
       maybe_save_ontology( ont, iri, mgr );
 
-      idList.add(newowlclass.toStringID());
+      obj_to_termlist( newowlclass, idList, false, verbose );
       r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
     }
     else
@@ -1795,4 +1747,117 @@ public class Owlkb
     else
       L.add(the_iri);
   }
+
+  String compute_demo_response( OWLClassExpression exp, OWLReasoner r, OWLOntologyManager m, OWLOntology o, IRI iri, long start_time, boolean fJson, boolean verbose )
+  {
+    ArrayList<String> terms;
+
+    try
+    {
+      terms = addTerm( exp, r, m, o, iri, verbose );
+    }
+    catch( Exception e )
+    {
+      return "Malformed Manchester query";
+    }
+
+    StringBuilder sb = new StringBuilder();
+
+    if ( fJson )
+    {
+      sb.append( "{\"terms\": [" );
+
+      if ( verbose )
+        sb.append( jsobjs_to_csv( terms ) );
+      else
+        sb.append( terms_to_csv( terms ) );
+
+      sb.append( "]," );
+    }
+    else
+    {
+      sb.append( "<h3>Term</h3><ul>" );
+
+      for ( String termp : terms )
+        sb.append( "<li>" + shorturl(termp) + "</li>" );
+
+      sb.append( "</ul>" );
+    }
+
+    ArrayList<String> subs;
+
+    try
+    {
+      subs = getSubTerms(exp,r,false,false,verbose);
+    }
+    catch( Exception e )
+    {
+      return "There was an error getting the results";
+    }
+
+    if ( fJson )
+    {
+      sb.append( "\"subterms\": [" );
+
+      if ( verbose )
+        sb.append( jsobjs_to_csv( subs ) );
+      else
+        sb.append( terms_to_csv( subs ) );
+
+      sb.append( "]," );
+    }
+    else if ( subs.size() != 0 )
+    {
+      sb.append( "<h3>Subterms</h3><ul>" );
+
+      for ( String termp : subs )
+        sb.append( "<li>" + shorturl(termp) + "</li>" );
+
+      sb.append( "</ul>" );
+    }
+
+    if ( fJson )
+      sb.append( "\"runtime\": \"" + (System.nanoTime() - start_time) / 1000000 + "ms\"}" );
+    else
+      sb.append( "<h5>Runtime</h5>This computation took "+(System.nanoTime() - start_time) / 1000000+"ms to complete" );
+
+    return sb.toString();
+  }
+
+  String terms_to_csv( List<String> terms )
+  {
+    StringBuilder sb = new StringBuilder();
+    boolean fFirst = false;
+
+    for ( String term : terms )
+    {
+      if ( !fFirst )
+        fFirst = true;
+      else
+        sb.append( "," );
+
+      sb.append( "\"" + shorturl(term) + "\"" );
+    }
+
+    return sb.toString();
+  }
+
+  String jsobjs_to_csv( List<String> jsobjs )
+  {
+    StringBuilder sb = new StringBuilder();
+    boolean fFirst = false;
+
+    for ( String jsobj : jsobjs )
+    {
+      if ( !fFirst )
+        fFirst = true;
+      else
+        sb.append(",");
+
+      sb.append(jsobj);
+    }
+
+    return sb.toString();
+  }
+
 }
