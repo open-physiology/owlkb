@@ -1322,7 +1322,7 @@ public class Owlkb
       if ( label != null )
       {
         append_spaces( sb, indent + 2 );
-        sb.append( "\"label\": \"" + escapeHTML(label) + "\",\n" );
+        sb.append( "\"label\": \"" + escapeJSON(label) + "\",\n" );
       }
 
       append_subhierarchy( sb, c, r, indent+2 );
@@ -1394,14 +1394,14 @@ public class Owlkb
       else
         response += ",\n";
 
-      response += "  {\n    \"_id\": \"" + escapeHTML(shortform) + "\",\n";
+      response += "  {\n    \"_id\": \"" + escapeJSON(shortform) + "\",\n";
 
       String the_label = get_one_rdfs_label( e, o, rdfslab );
 
       if ( the_label == null )
         the_label = shortform;
 
-      response += "    \"name\": \"" + escapeHTML(the_label) + "\",\n    \"sub\":\n    [\n";
+      response += "    \"name\": \"" + escapeJSON(the_label) + "\",\n    \"sub\":\n    [\n";
 
       if ( e.isOWLClass() )
       {
@@ -1415,8 +1415,8 @@ public class Owlkb
           else
             response += ",\n";
 
-          response += "      {\n        \"type\": \"" + escapeHTML(sub.type) + "\",\n";
-          response += "        \"entity\":\n        {\n          \"_id\": \"" + escapeHTML(sub.id) + "\"\n        }\n      }";
+          response += "      {\n        \"type\": \"" + escapeJSON(sub.type) + "\",\n";
+          response += "        \"entity\":\n        {\n          \"_id\": \"" + escapeJSON(sub.id) + "\"\n        }\n      }";
         }
       }
 
@@ -1624,6 +1624,30 @@ public class Owlkb
     return null;
   }
 
+  public static String escapeJSON(String s)
+  {
+    int len = s.length();
+    StringBuilder sb = new StringBuilder(len);
+
+    for ( int i = 0; i < len; i++ )
+    {
+      switch( s.charAt(i) )
+      {
+        case '\\':
+          sb.append( "\\\\" );
+          break;
+        case '\"':
+          sb.append( "\\\"" );
+          break;
+        default:
+          sb.append( s.charAt(i) );
+          break;
+      }
+    }
+
+    return sb.toString();
+  }
+
   /*
    * escapeHTML taken from Bruno Eberhard at stackoverflow
    */
@@ -1738,7 +1762,7 @@ public class Owlkb
       if ( label == null )
         sb.append( "null" );
       else
-        sb.append( "\"" + escapeHTML(label) + "\"" );
+        sb.append( "\"" + escapeJSON(label) + "\"" );
 
       sb.append( "\n}" );
 
