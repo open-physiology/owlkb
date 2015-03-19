@@ -192,7 +192,6 @@ public class Owlkb
     server.createContext("/siblings", new NetHandler("siblings", r, manager, ont, entityChecker, iri));
     server.createContext("/subhierarchy", new NetHandler("subhierarchy", r, manager, ont, entityChecker, iri));
     server.createContext("/apinatomy", new NetHandler("apinatomy", r, manager, ont, entityChecker, iri));
-    server.createContext("/rtsubterms", new NetHandler("rtsubterms", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler("eqterms", r, manager, ont, entityChecker, iri));
     server.createContext("/addlabel", new NetHandler("addlabel", r, manager, ont, entityChecker, iri));
     server.createContext("/terms", new NetHandler("terms", r, manager, ont, entityChecker, iri));
@@ -248,7 +247,7 @@ public class Owlkb
 
       Headers requestHeaders = t.getRequestHeaders();
       boolean fJson = ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") );
-      boolean verbose;
+      boolean verbose = false;
 
       String response;
 
@@ -266,13 +265,13 @@ public class Owlkb
           fJson = true;
 
         if ( args.containsKey( "verbose" ) )
+        {
           verbose = true;
+          fJson = true;
+        }
       }
       else
-      {
         args = new HashMap<String,String>();
-        verbose = false;
-      }
 
       req = java.net.URLDecoder.decode(req, "UTF-8");
 
@@ -284,11 +283,14 @@ public class Owlkb
 
       if ( srvtype.equals("labels") || srvtype.equals("search") )
       {
-        ArrayList<String> terms = (srvtype.equals("labels") ? getLabels( req, o ) : SearchByLabel( req, o ));
+        boolean isLabels = srvtype.equals("labels");
+
+        ArrayList<String> terms = (isLabels ? getLabels( req, o ) : SearchByLabel( req, o, verbose ));
+
         if ( terms == null || terms.isEmpty() )
-          response = (srvtype.equals("labels") ? "No class by that shortform." : "No class with that label.");
+          response = (isLabels ? "No class by that shortform." : "No class with that label.");
         else
-          response = compute_response( terms, fJson, false );
+          response = compute_response( terms, fJson, false, verbose && !isLabels );
       }
       else
       if ( srvtype.equals("addlabel") )
@@ -399,25 +401,21 @@ public class Owlkb
             ArrayList<String> terms = null;
 
             if ( srvtype.equals("subterms") )
-              terms = getSubTerms(exp,r,false,false);
+              terms = getSubTerms(exp,r,false,false,verbose);
             else if ( srvtype.equals("siblings") )
-              terms = getSiblings(exp,r,false,false);
+              terms = getSiblings(exp,r,false,false,verbose);
             else if ( srvtype.equals("eqterms") )
               terms = addTerm(exp, r, m, o, iri );
             else if ( srvtype.equals("instances") )
-              terms = getInstances(exp,r);
+              terms = getInstances(exp,r,verbose);
             else if ( srvtype.equals("terms") )
-              terms = getTerms(exp,r);
+              terms = getTerms(exp,r,verbose);
 
-            response = compute_response( terms, fJson, false );
+            response = compute_response( terms, fJson, false, verbose );
           }
           else if ( srvtype.equals("subhierarchy") )
           {
             response = compute_subhierarchy_response( exp, r );
-          }
-          else if ( srvtype.equals("rtsubterms") )
-          {
-            response = compute_rtsubterms_response( exp, r, fJson );
           }
           else if ( srvtype.equals("test") )
           {
@@ -448,7 +446,7 @@ public class Owlkb
 
               try
               {
-                ArrayList<String> subs = getSubTerms(exp,r,false,false);
+                ArrayList<String> subs = getSubTerms(exp,r,false,false,false);
 
                 if ( subs.size() != 0 )
                 {
@@ -527,68 +525,68 @@ public class Owlkb
 
   public void send_response( HttpExchange t, String response, boolean fJson ) throws IOException
   {
-      Headers h = t.getResponseHeaders();
-      h.add("Cache-Control", "no-cache, no-store, must-revalidate");
-      h.add("Pragma", "no-cache");
-      h.add("Expires", "0");
+    Headers h = t.getResponseHeaders();
+    h.add("Cache-Control", "no-cache, no-store, must-revalidate");
+    h.add("Pragma", "no-cache");
+    h.add("Expires", "0");
 
-      if ( fJson )
-        h.add("Content-Type", "application/json");
+    if ( fJson )
+      h.add("Content-Type", "application/json");
 
-      t.sendResponseHeaders(200,response.getBytes().length);
-      OutputStream os = t.getResponseBody();
-      os.write(response.getBytes());
-      os.close();
+    t.sendResponseHeaders(200,response.getBytes().length);
+    OutputStream os = t.getResponseBody();
+    os.write(response.getBytes());
+    os.close();
 
-      logstring( "Response transmitted.");
+    logstring( "Response transmitted.");
   }
 
   /*
    * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
    * are adapted from methods of the same names written by Sarala W.
    */
-  private ArrayList<String> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct )
+  private ArrayList<String> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
   {
     ArrayList<String> idList = new ArrayList<String>();
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, direct);
 
     if (subClasses!=null)
     {
-      if ( longURI )
-      {
-        for (Node<OWLClass> owlClassNode : subClasses)
-        {
-          IRI the_iri = owlClassNode.getEntities().iterator().next().getIRI();
-          idList.add(the_iri.toString());
-        }
-      }
-      else
-      {
-        for (Node<OWLClass> owlClassNode : subClasses)
-          idList.add(owlClassNode.getEntities().iterator().next().toStringID());
-      }
+      for ( Node<OWLClass> owlClassNode : subClasses )
+        class_to_termlist( owlClassNode, idList, longURI, verbose );
     }
 
     return idList;
   }
 
-  private ArrayList<String> getSiblings(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct )
+  private ArrayList<String> getSiblings(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
   {
     Set<Node<OWLClass>> parentnodes = r.getSuperClasses( exp, true ).getNodes();
     HashSet<String> sibs = new HashSet<String>();
-    ArrayList<String> retval = new ArrayList<String>();
+
+    ArrayList<String> retval;
+
+    if ( verbose )
+      retval = new ArrayList<String>();
+    else
+      retval = null;
 
     for ( Node<OWLClass> pnode : parentnodes )
     {
       OWLClass parent = pnode.getRepresentativeElement();
       NodeSet<OWLClass> childnodes = r.getSubClasses( parent, true );
 
-      String plabel = LabelByClass(parent);
+      String plabel = null, pID = null;
 
-      if ( plabel == null )
-        plabel = "null";
+      if ( verbose )
+      {
+        plabel = LabelByClass(parent);
 
-      String pID = shorturl(parent.getIRI().toString());
+        if ( plabel == null )
+          plabel = "null";
+
+        pID = shorturl(parent.getIRI().toString());
+      }
 
       for ( OWLClass c : childnodes.getFlattened() )
       {
@@ -599,24 +597,26 @@ public class Owlkb
 
         sibs.add( sibID );
 
-        String label = LabelByClass(c);
+        if ( verbose )
+        {
+          String label = LabelByClass(c);
 
-        if ( label == null )
-          label = "null";
+          if ( label == null )
+            label = "null";
 
-        /*
-         * Leading http://_# is a hack to get past shorturl.
-         * To do: refactor all this
-         */
-        String verbose = "http://_#{\"sibling\":\""+sibID+"\", \"label\":\""+label+"\", \"parent\":\""+pID+"\", \"parent_label\":\""+plabel+"\"}";
-        retval.add(verbose);
+          String jsobj = "http://_#{\"sibling\":\""+sibID+"\", \"label\":\""+label+"\", \"parent\":\""+pID+"\", \"parent_label\":\""+plabel+"\"}";
+          retval.add(jsobj);
+        }
       }
     }
 
-    return retval;
+    if ( verbose )
+      return retval;
+    else
+      return new ArrayList<String>(sibs);
   }
 
-  private ArrayList<String> getInstances(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<String> getInstances(OWLClassExpression exp, OWLReasoner r, boolean verbose)
   {
     ArrayList<String> idList = new ArrayList<String>();
     NodeSet<OWLNamedIndividual> inst = r.getInstances(exp, false);
@@ -624,33 +624,27 @@ public class Owlkb
     if (inst != null)
     {
       for (Node<OWLNamedIndividual> ind : inst)
-        idList.add(ind.getEntities().iterator().next().toStringID());
+        individual_to_termlist( ind, idList, false, verbose );
     }
 
     return idList;
   }
 
-  private ArrayList<String> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r)
+  private ArrayList<String> getEquivalentTerms(OWLClassExpression exp, OWLReasoner r, boolean verbose)
   {
     ArrayList<String> idList = new ArrayList<String>();
     Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
 
     if(equivalentClasses != null)
     {
-      try
-      {
-        idList.add(equivalentClasses.getEntities().iterator().next().toStringID());
-      }
-      catch (java.util.NoSuchElementException e)
-      {
-        ;
-      }
+      for ( OWLClass c : equivalentClasses.getEntities() )
+        obj_to_termlist( c, idList, false, verbose );
     }
 
     return idList;
   }
 
-  public String LabelByClass(OWLClass c)
+  public String LabelByClass(OWLEntity c)
   {
     OWLAnnotationProperty rdfslab = df.getRDFSLabel();
     Set<OWLAnnotation> annots = null;
@@ -712,38 +706,37 @@ public class Owlkb
     return idList;
   }
 
-  public ArrayList<String> SearchByLabel(String label, OWLOntology o )
+  public ArrayList<String> SearchByLabel(String label, OWLOntology o, boolean verbose )
   {
     Set<OWLEntity> ents = annovider.getEntities(label);
-    ArrayList<String> idList = new ArrayList<String>();
 
-    if ( ents == null || ents.isEmpty()==true )
+    if ( ents == null || ents.isEmpty() )
       return null;
+
+    ArrayList<String> idList = new ArrayList<String>();
 
     for ( OWLEntity e : ents )
     {
-      if ( e.isOWLClass() == false || e.asOWLClass().isAnonymous() == true )
-        continue;
-
-      idList.add( shorts.getShortForm(e) );
+      if ( e.isOWLClass() && !e.asOWLClass().isAnonymous() )
+        obj_to_termlist( e, idList, false, verbose );
     }
 
     return idList;
   }
 
-  public ArrayList<String> getTerms(OWLClassExpression exp, OWLReasoner r)
+  public ArrayList<String> getTerms(OWLClassExpression exp, OWLReasoner r, boolean verbose)
   {
     ArrayList<String> idList = new ArrayList<String>();
 
-    idList.addAll(getEquivalentTerms(exp,r));
-    idList.addAll(getSubTerms(exp,r,false,false));
+    idList.addAll(getEquivalentTerms(exp,r,verbose));
+    idList.addAll(getSubTerms(exp,r,false,false,verbose));
 
     return idList;
   }
 
   public ArrayList<String> addTerm(OWLClassExpression exp, OWLReasoner r, OWLOntologyManager mgr, OWLOntology ont, IRI iri )
   {
-    ArrayList<String> idList = getEquivalentTerms(exp,r);
+    ArrayList<String> idList = getEquivalentTerms(exp,r,false);
     if(idList.isEmpty())
     {
       String ricordoid = String.valueOf(System.currentTimeMillis());
@@ -797,45 +790,57 @@ public class Owlkb
     System.out.println( x );
   }
 
-  public String compute_response( ArrayList<String> terms, boolean fJson, boolean longURI )
+  public String compute_response( ArrayList<String> terms, boolean fJson, boolean longURI, boolean verbose )
   {
-    String x;
+    StringBuilder x = new StringBuilder();
+
+    if ( verbose )
+    {
+      boolean fFirst = false;
+      x.append("{\"results\":[\n" );
+
+      for ( String js : terms )
+      {
+        if ( !fFirst )
+          fFirst = true;
+        else
+          x.append( "," );
+
+        x.append( js );
+      }
+
+      x.append("\n]}");
+
+      return x.toString();
+    }
 
     if ( fJson )
     {
-      x = "[";
-      int fencepost = 0;
+      x.append("[");
+      boolean fFirst = false;
 
       for ( String termp : terms )
       {
-        if ( fencepost == 0 )
-        {
-          fencepost = 1;
-          x += "'" + (longURI ? termp : shorturl(termp)) +"'";
-        }
+        if ( !fFirst )
+          fFirst = true;
         else
-          x += ", '"+(longURI ? termp : shorturl(termp))+"'";
+          x.append(", ");
+
+        x.append( "\"" + (longURI ? termp : shorturl(termp)) +"\"" );
       }
-      x += "]";
+      x.append("]");
     }
     else
     {
-      x = "<table><tr><th>ID</th></tr>";
+      x.append("<table><tr><th>ID</th></tr>");
 
       for ( String termp : terms )
-        x += "<tr><td>" + (longURI ? termp : shorturl(termp)) +"</td></tr>";
+        x.append("<tr><td>" + (longURI ? termp : shorturl(termp)) +"</td></tr>");
 
-      x += "</table>";
+      x.append("</table>");
     }
 
-    return x;
-  }
-
-  public String compute_rtsubterms_response( OWLClassExpression exp, OWLReasoner r, boolean fJson )
-  {
-    ArrayList<String> terms = getSubTerms( exp, r, false, false );
-
-    return "Not yet implemented";
+    return x.toString();
   }
 
   public void init_owlkb( String [] args )
@@ -1197,9 +1202,9 @@ public class Owlkb
 
     if ( exp != null )
     {
-      ArrayList<String> terms = getSubTerms(exp, r, true, false);
+      ArrayList<String> terms = getSubTerms(exp, r, true, false, false);
 
-      return compute_response( terms, true, true );
+      return compute_response( terms, true, true, false );
     }
 
     return req;
@@ -1568,7 +1573,7 @@ public class Owlkb
 
     OWLClass c = e.asOWLClass();
 
-    ArrayList<String> subclasslist = getSubTerms(c, r, false, true);
+    ArrayList<String> subclasslist = getSubTerms(c, r, false, true, false);
 
     for ( String subclass : subclasslist )
     {
@@ -1752,5 +1757,42 @@ public class Owlkb
       return null;
 
     return json.substring(pos,endpos);
+  }
+
+  private void class_to_termlist( Node<OWLClass> node, List<String> L, boolean longIRI, boolean verbose )
+  {
+    obj_to_termlist( node.getRepresentativeElement(), L, longIRI, verbose );
+  }
+
+  private void individual_to_termlist( Node<OWLNamedIndividual> node, List<String> L, boolean longIRI, boolean verbose )
+  {
+    obj_to_termlist( node.getRepresentativeElement(), L, longIRI, verbose );
+  }
+
+  private void obj_to_termlist( OWLEntity c, List<String> L, boolean longIRI, boolean verbose )
+  {
+    String the_iri = longIRI ? c.getIRI().toString() : c.toStringID();
+
+    if ( verbose )
+    {
+      StringBuilder sb = new StringBuilder();
+
+      sb.append( "{\n \"term\": \"" );
+      sb.append( the_iri );
+      sb.append( "\",\n \"label\": " );
+
+      String label = LabelByClass(c);
+
+      if ( label == null )
+        sb.append( "null" );
+      else
+        sb.append( "\"" + escapeHTML(label) + "\"" );
+
+      sb.append( "\n}" );
+
+      L.add(sb.toString());
+    }
+    else
+      L.add(the_iri);
   }
 }
