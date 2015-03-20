@@ -556,7 +556,7 @@ public class Owlkb
           if ( label == null )
             label = "null";
 
-          String jsobj = "{\n   \"sibling\":\""+sibID+"\",\n   \"label\":\""+label+"\",\n   \"parent\":\""+pID+"\",\n   \"parent_label\":\""+plabel+"\"}";
+          String jsobj = "{\n   \"sibling\":\""+sibID+"\",\n   \"label\":\""+label+"\",\n   \"parent\":\""+pID+"\",\n   \"parent_label\":\""+plabel+"\"\n}";
           retval.add(jsobj);
         }
       }
