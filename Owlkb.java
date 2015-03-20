@@ -1439,6 +1439,13 @@ public class Owlkb
     {
       URL url = new URL(urlstring);
       URLConnection con = url.openConnection();
+
+      /*
+       * To do: Make these values configurable
+       */
+      con.setConnectTimeout( 1000 );
+      con.setReadTimeout( 1000 );
+
       r = new InputStreamReader(con.getInputStream(), "UTF-8");
       buf = new StringBuilder();
 
