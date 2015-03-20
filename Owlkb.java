@@ -556,7 +556,7 @@ public class Owlkb
           if ( label == null )
             label = "null";
 
-          String jsobj = "{\"sibling\":\""+sibID+"\", \"label\":\""+label+"\", \"parent\":\""+pID+"\", \"parent_label\":\""+plabel+"\"}";
+          String jsobj = "{\n   \"sibling\":\""+sibID+"\",\n   \"label\":\""+label+"\",\n   \"parent\":\""+pID+"\",\n   \"parent_label\":\""+plabel+"\"}";
           retval.add(jsobj);
         }
       }
@@ -749,26 +749,26 @@ public class Owlkb
     if ( verbose )
     {
       boolean fFirst = false;
-      x.append("{\"results\":[\n" );
+      x.append("{\n \"results\":\n [\n  " );
 
       for ( String js : terms )
       {
         if ( !fFirst )
           fFirst = true;
         else
-          x.append( "," );
+          x.append( ",\n  " );
 
         x.append( js );
       }
 
-      x.append("\n]}");
+      x.append("\n ]\n}");
 
       return x.toString();
     }
 
     if ( fJson )
     {
-      x.append("[");
+      x.append("[\n ");
       boolean fFirst = false;
 
       for ( String termp : terms )
@@ -776,7 +776,7 @@ public class Owlkb
         if ( !fFirst )
           fFirst = true;
         else
-          x.append(", ");
+          x.append(",\n ");
 
         x.append( "\"" + (longURI ? termp : shorturl(termp)) +"\"" );
       }
