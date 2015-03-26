@@ -63,6 +63,26 @@ function parse_demo_json( x )
   }
   var retval;
 
+  if ( x.hasOwnProperty('Ambiguities') )
+  {
+    retval = "<h2>Query is ambiguous</h2>";
+    retval += "<ul>";
+
+    for ( var i = 0; i < x.Ambiguities.length; i++ )
+    {
+      retval += "<li>" + x.Ambiguities[i].label + "<ul>";
+
+      for ( var j = 0; j < x.Ambiguities[i].options.length; j++ )
+        retval += "<li>" + x.Ambiguities[i].options[j] + "</li>";
+
+      retval += "</ul></li>";
+    }
+
+    retval += "</ul>";
+
+    return retval;
+  }
+
   if ( x.terms.length == 1 )
     retval = "<h3>Term</h3><ul>";
   else
