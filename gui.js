@@ -70,10 +70,10 @@ function parse_demo_json( x )
 
     for ( var i = 0; i < x.Ambiguities.length; i++ )
     {
-      retval += "<li>" + x.Ambiguities[i].label + "<ul>";
+      retval += "<li>[" + x.Ambiguities[i].label + "] could be:<ul>";
 
       for ( var j = 0; j < x.Ambiguities[i].options.length; j++ )
-        retval += "<li>" + x.Ambiguities[i].options[j] + "</li>";
+        retval += "<li>&raquo; " + x.Ambiguities[i].options[j] + "</li>";
 
       retval += "</ul></li>";
     }
