@@ -53,7 +53,14 @@ function describe_unlabeled_class( term )
 
 function parse_demo_json( x )
 {
-  x = JSON.parse(x);
+  try
+  {
+    x = JSON.parse(x);
+  }
+  catch( err )
+  {
+    return x;
+  }
   var retval;
 
   if ( x.terms.length == 1 )
