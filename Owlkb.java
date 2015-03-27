@@ -18,50 +18,34 @@
  * limitations under the License.
  */
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.Headers;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.net.InetSocketAddress;
-import java.io.*;
+import java.io.File;
 import java.util.Set;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.TimerTask;
-import java.util.Timer;
-import java.util.Scanner;
 
-import org.semanticweb.HermiT.Reasoner;
 import org.semanticweb.elk.owlapi.ElkReasonerFactory;
 import org.semanticweb.owlapi.reasoner.OWLReasoner;
 import org.semanticweb.owlapi.reasoner.OWLReasonerFactory;
-
+import org.semanticweb.owlapi.reasoner.Node;
+import org.semanticweb.owlapi.reasoner.NodeSet;
+import org.semanticweb.owlapi.reasoner.InferenceType;
 import org.semanticweb.owlapi.apibinding.OWLManager;
-import org.semanticweb.owlapi.model.OWLOntologyManager;
-import org.semanticweb.owlapi.model.OWLOntology;
-import org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration;
 import org.semanticweb.owlapi.model.*;
-import org.semanticweb.owlapi.reasoner.*;
-import org.semanticweb.owlapi.io.OWLOntologyDocumentSource;
 import org.semanticweb.owlapi.io.FileDocumentSource;
 import org.coode.owlapi.manchesterowlsyntax.ManchesterOWLSyntaxEditorParser;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProvider;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProviderAdapter;
-import org.semanticweb.owlapi.util.SimpleShortFormProvider;
 import org.semanticweb.owlapi.util.AnnotationValueShortFormProvider;
 import org.semanticweb.owlapi.util.OWLOntologyImportsClosureSetProvider;
 import org.semanticweb.owlapi.expression.OWLEntityChecker;
 import org.semanticweb.owlapi.expression.ShortFormEntityChecker;
-import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.Headers;
 
 public class Owlkb
 {
@@ -86,6 +70,7 @@ public class Owlkb
   BidirectionalShortFormProviderAdapter annovider;
   OWLOntologyImportsClosureSetProvider ontset;
   Set<OWLOntology> imp_closure;
+  OWLAnnotationProperty rdfslab;
 
   public static void main(String [] args) throws Exception
   {
@@ -101,7 +86,7 @@ public class Owlkb
   {
     init_owlkb(args);
 
-    if ( help_only == true )
+    if ( help_only )
       return;
 
     /*
@@ -143,14 +128,14 @@ public class Owlkb
      * Establish infrastructure for converting long URLs to short IRIs and vice versa
      * (e.g., converting between "http://purl.org/obo/owlapi/quality#PATO_0000014" and "PATO_0000014")
      */
-    shorts = new BidirectionalShortFormProviderAdapter(manager, imp_closure, new SimpleShortFormProvider());
+    shorts = new BidirectionalShortFormProviderAdapter(manager, imp_closure, new org.semanticweb.owlapi.util.SimpleShortFormProvider());
     OWLEntityChecker entityChecker = new ShortFormEntityChecker(shorts);
 
     /*
      * Infrastructure for searching for classes by label
      */
     List<OWLAnnotationProperty> labeltype_list = new ArrayList<OWLAnnotationProperty>();
-    labeltype_list.add(df.getRDFSLabel());
+    labeltype_list.add(rdfslab);
     Map<OWLAnnotationProperty,List<String>> emptymap = new HashMap<OWLAnnotationProperty,List<String>>();
     AnnotationValueShortFormProvider pre_annovider = new AnnotationValueShortFormProvider(labeltype_list, emptymap, ontset );
     annovider = new BidirectionalShortFormProviderAdapter(manager, imp_closure, pre_annovider);
@@ -168,7 +153,7 @@ public class Owlkb
       r = rf.createReasoner(ont);
     }
     else
-      r = new Reasoner(ont);  //Hermit reasoner
+      r = new org.semanticweb.HermiT.Reasoner(ont);  //Hermit reasoner
 
     logstring( "Reasoner established.");
 
@@ -187,7 +172,7 @@ public class Owlkb
      */
     logstring( "Initiating server...");
 
-    HttpServer server = HttpServer.create(new InetSocketAddress(port), 0 );
+    HttpServer server = HttpServer.create(new java.net.InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler("subterms", r, manager, ont, entityChecker, iri));
     server.createContext("/siblings", new NetHandler("siblings", r, manager, ont, entityChecker, iri));
     server.createContext("/subhierarchy", new NetHandler("subhierarchy", r, manager, ont, entityChecker, iri));
@@ -210,15 +195,9 @@ public class Owlkb
     server.start();
 
     logstring( "Server initiated.");
-
-    /*
-     * Initiate timer for realtime update API
-     */
-    Timer tmr = new Timer();
-    tmr.schedule( new realtime_updater(), 1000, 500 );
   }
 
-  class NetHandler implements HttpHandler
+  class NetHandler implements com.sun.net.httpserver.HttpHandler
   {
     String srvtype;
     OWLReasoner r;
@@ -237,7 +216,7 @@ public class Owlkb
       this.iri = iri;
     }
 
-    public void handle(HttpExchange t) throws IOException
+    public void handle(HttpExchange t) throws java.io.IOException
     {
       if ( srvtype.equals("gui") )
       {
@@ -273,7 +252,7 @@ public class Owlkb
       else
         args = new HashMap<String,String>();
 
-      req = java.net.URLDecoder.decode(req, "UTF-8");
+      req = URLDecode(req);
 
       if ( check_for_non_EL( req, t ) )
         return;
@@ -334,7 +313,7 @@ public class Owlkb
 
         if ( ucl_syntax != null )
         {
-          String LOLS_reply = queryURL( ucl_syntax + URLEncoder.encode(req,"UTF-8") );
+          String LOLS_reply = queryURL( ucl_syntax + URLEncode(req) );
 
           if ( LOLS_reply == null )
           {
@@ -475,7 +454,7 @@ public class Owlkb
     }
   }
 
-  public void send_response( HttpExchange t, String response, boolean fJson ) throws IOException
+  public void send_response( HttpExchange t, String response, boolean fJson ) throws java.io.IOException
   {
     Headers h = t.getResponseHeaders();
     h.add("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -486,27 +465,20 @@ public class Owlkb
       h.add("Content-Type", "application/json");
 
     t.sendResponseHeaders(200,response.getBytes().length);
-    OutputStream os = t.getResponseBody();
+    java.io.OutputStream os = t.getResponseBody();
     os.write(response.getBytes());
     os.close();
 
     logstring( "Response transmitted.");
   }
 
-  /*
-   * Some of the following methods (getSubTerms, getEquivalentTerms, getTerms, addTerm)
-   * are adapted from methods of the same names written by Sarala W.
-   */
   private ArrayList<String> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
   {
     ArrayList<String> idList = new ArrayList<String>();
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, direct);
 
-    if (subClasses!=null)
-    {
-      for ( Node<OWLClass> owlClassNode : subClasses )
-        class_to_termlist( owlClassNode, idList, longURI, verbose );
-    }
+    for ( Node<OWLClass> owlClassNode : subClasses )
+      class_to_termlist( owlClassNode, idList, longURI, verbose );
 
     return idList;
   }
@@ -573,11 +545,8 @@ public class Owlkb
     ArrayList<String> idList = new ArrayList<String>();
     NodeSet<OWLNamedIndividual> inst = r.getInstances(exp, false);
 
-    if (inst != null)
-    {
-      for (Node<OWLNamedIndividual> ind : inst)
-        individual_to_termlist( ind, idList, false, verbose );
-    }
+    for (Node<OWLNamedIndividual> ind : inst)
+      individual_to_termlist( ind, idList, false, verbose );
 
     return idList;
   }
@@ -587,38 +556,23 @@ public class Owlkb
     ArrayList<String> idList = new ArrayList<String>();
     Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
 
-    if(equivalentClasses != null)
-    {
-      for ( OWLClass c : equivalentClasses.getEntities() )
-        obj_to_termlist( c, idList, false, verbose );
-    }
+    for ( OWLClass c : equivalentClasses.getEntities() )
+      obj_to_termlist( c, idList, false, verbose );
 
     return idList;
   }
 
   public String LabelByClass(OWLEntity c)
   {
-    OWLAnnotationProperty rdfslab = df.getRDFSLabel();
-    Set<OWLAnnotation> annots = null;
-    boolean fMatch = false;
-
     for ( OWLOntology imp : imp_closure )
     {
-      annots = c.getAnnotations( imp, rdfslab );
-      if ( !annots.isEmpty() )
+      Set<OWLAnnotation> annots = c.getAnnotations( imp, rdfslab );
+
+      for ( OWLAnnotation a : annots )
       {
-        fMatch = true;
-        break;
+        if ( a.getValue() instanceof OWLLiteral )
+          return ((OWLLiteral)a.getValue()).getLiteral();
       }
-    }
-
-    if ( !fMatch )
-      return null;
-
-    for ( OWLAnnotation a : annots )
-    {
-      if ( a.getValue() instanceof OWLLiteral )
-        return ((OWLLiteral)a.getValue()).getLiteral();
     }
 
     return null;
@@ -627,12 +581,11 @@ public class Owlkb
   public ArrayList<String> getLabels(String shortform, OWLOntology o )
   {
     OWLEntity e = shorts.getEntity(shortform);
-    ArrayList<String> idList = new ArrayList<String>();
 
-    if ( e == null || e.isOWLClass() == false )
+    if ( e == null || !e.isOWLClass() )
       return null;
 
-    OWLAnnotationProperty rdfslab = df.getRDFSLabel();
+    ArrayList<String> idList = new ArrayList<String>();
 
     Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab );
 
@@ -692,15 +645,11 @@ public class Owlkb
     if(idList.isEmpty())
     {
       String ricordoid = String.valueOf(System.currentTimeMillis());
-      OWLClass newowlclass = mgr.getOWLDataFactory().getOWLClass(IRI.create(kbNs + ricordoid));
+      OWLClass newowlclass = df.getOWLClass(IRI.create(kbNs + ricordoid));
 
-      OWLAxiom axiom = mgr.getOWLDataFactory().getOWLEquivalentClassesAxiom(newowlclass, exp);
-      Set<OWLAxiom> axiomSet = new HashSet<OWLAxiom>();
-      axiomSet.add(axiom);
+      mgr.addAxiom(ont, df.getOWLEquivalentClassesAxiom(newowlclass, exp) );
 
-      mgr.addAxioms(ont,axiomSet);
-
-      if ( rname == "elk" )
+      if ( rname.equals("elk") )
         r.flush();
 
       maybe_save_ontology( ont, iri, mgr );
@@ -708,16 +657,10 @@ public class Owlkb
       obj_to_termlist( newowlclass, idList, false, verbose );
       r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
     }
-    else
-      logstring( "Term already exists, no need to add." );
 
     return idList;
   }
 
-  /*
-   * Convert long URL to short
-   * e.g. convert "http://purl.org/obo/owlapi/quality#PATO_0000014" to "PATO_0000014"
-   */
   public static String shorturl(String url)
   {
     int i = url.lastIndexOf("#");
@@ -797,8 +740,10 @@ public class Owlkb
 
   public void init_owlkb( String [] args )
   {
-    parse_commandline_arguments(args);
     df = OWLManager.getOWLDataFactory();
+    rdfslab = df.getRDFSLabel();
+
+    parse_commandline_arguments(args);
   }
 
   public void parse_commandline_arguments( String [] args )
@@ -806,7 +751,7 @@ public class Owlkb
     rname = "elk";
     hd_save = true;
     kbNs = "http://www.ricordo.eu/ricordo.owl#RICORDO_";
-    kbfilename = "/home/sarala/testkb/ricordo.owl";
+    kbfilename = "/home/sarala/testkb/ricordo.owl";  // Keep this silly default for backward compatibility
     sparql = null;
     help_only = false;
     port = 20080;
@@ -996,31 +941,16 @@ public class Owlkb
     }
   }
 
-  class realtime_updater extends TimerTask
-  {
-    public void run()
-    {
-      /*
-       * Maintain list of class expressions that people are monitoring realtime.
-       * Maintain list of newly added classes.
-       * Periodically check the latter against the former, but limit how much time
-       * to do so in one go.
-       */
-    }
-  }
-
   public void send_gui(HttpExchange t)
   {
     String the_html, the_js;
 
     try
     {
-      try
-      {
-        the_html = new Scanner(new File("gui.html")).useDelimiter("\\A").next();
-        the_js = new Scanner(new File("gui.js")).useDelimiter("\\A").next();
-      }
-      catch(Exception e)
+      the_html = readfile("gui.html");
+      the_js = readfile("gui.js");
+
+      if ( the_html == null || the_js == null )
       {
         send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file.", false );
         return;
@@ -1069,7 +999,7 @@ public class Owlkb
 
     OWLEntity e = shorts.getEntity(iri);
 
-    if ( e == null || e.isOWLClass() == false )
+    if ( e == null || !e.isOWLClass() )
     {
       if ( fJson )
         return "{'class not found error'}";
@@ -1077,7 +1007,7 @@ public class Owlkb
         return "The specified class could not be found.  Please make sure you're using the shortform of the iri, e.g., RICORDO_123 instead of http://website.com/RICORDO_123";
     }
 
-    Set<OWLAnnotation> annots = e.getAnnotations(o, df.getRDFSLabel() );
+    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab );
 
     if ( !annots.isEmpty() )
     {
@@ -1091,7 +1021,8 @@ public class Owlkb
       }
     }
 
-    OWLAnnotation a = df.getOWLAnnotation( df.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_LABEL.getIRI()), df.getOWLLiteral(label) );
+    IRI rdfslab_iri = org.semanticweb.owlapi.vocab.OWLRDFVocabulary.RDFS_LABEL.getIRI();
+    OWLAnnotation a = df.getOWLAnnotation( df.getOWLAnnotationProperty(rdfslab_iri), df.getOWLLiteral(label) );
     OWLAxiom axiom = df.getOWLAnnotationAssertionAxiom(e.asOWLClass().getIRI(), a);
     m.applyChange(new AddAxiom( o, axiom ));
     logstring( "Added rdfs:label "+label+" to class "+iri+"." );
@@ -1188,11 +1119,11 @@ public class Owlkb
   public String compute_generate_triples_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     OWLReasoner r = reasoner;
-    PrintWriter writer;
+    java.io.PrintWriter writer;
 
     try
     {
-      writer = new PrintWriter( "triples.nt", "UTF-8" );
+      writer = new java.io.PrintWriter( "triples.nt", "UTF-8" );
     }
     catch( Exception e )
     {
@@ -1344,13 +1275,12 @@ public class Owlkb
 
   public String compute_apinatomy_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
-    OWLAnnotationProperty rdfslab = df.getRDFSLabel();
     String response = "[\n";
     boolean isFirstResult = true;
 
     req = req.replace("fma:", "FMA_");
 
-    List<String> shortforms = Arrays.asList(req.split(","));
+    List<String> shortforms = java.util.Arrays.asList(req.split(","));
 
     /*
      * Max size chosen based on FMA's most prolific class, FMA_21792 ("Fascia of muscle"), which has 222 subs
@@ -1360,33 +1290,23 @@ public class Owlkb
 
     if ( req.substring(0,6).equals( "24tile" ) )
     {
-      try
-      {
-        return new Scanner(new File("24tiles.dat")).useDelimiter("\\A").next();
-      }
-      catch(Exception e)
-      {
-        return "[]";
-      }
+      String top24 = readfile("24tiles.dat");
+
+      return (top24 != null) ? top24 : "[]";
     }
 
     if ( req.equals("pkpd_base") )
     {
-      try
-      {
-        return new Scanner(new File("pkpdroot.dat")).useDelimiter("\\A").next();
-      }
-      catch(Exception e)
-      {
-        return "[]";
-      }
+      String toptiles = readfile("pkpdroot.dat");
+
+      return (toptiles != null) ? toptiles : "[]";
     }
 
     for ( String shortform : shortforms )
     {
       OWLEntity e = shorts.getEntity(shortform);
 
-      if ( e == null || (e.isOWLClass() == false && e.isOWLNamedIndividual() == false) )
+      if ( e == null || (!e.isOWLClass() && !e.isOWLNamedIndividual() ) )
         continue;
 
       if ( isFirstResult )
@@ -1396,7 +1316,7 @@ public class Owlkb
 
       response += "  {\n    \"_id\": \"" + escapeJSON(shortform) + "\",\n";
 
-      String the_label = get_one_rdfs_label( e, o, rdfslab );
+      String the_label = get_one_rdfs_label( e, o );
 
       if ( the_label == null )
         the_label = shortform;
@@ -1433,12 +1353,12 @@ public class Owlkb
   public String queryURL(String urlstring)
   {
     StringBuilder buf = null;
-    Reader r = null;
+    java.io.Reader r = null;
 
     try
     {
-      URL url = new URL(urlstring);
-      URLConnection con = url.openConnection();
+      java.net.URL url = new java.net.URL(urlstring);
+      java.net.URLConnection con = url.openConnection();
 
       /*
        * To do: Make these values configurable
@@ -1446,7 +1366,7 @@ public class Owlkb
       con.setConnectTimeout( 1000 );
       con.setReadTimeout( 1000 );
 
-      r = new InputStreamReader(con.getInputStream(), "UTF-8");
+      r = new java.io.InputStreamReader(con.getInputStream(), "UTF-8");
       buf = new StringBuilder();
 
       while (true)
@@ -1485,7 +1405,7 @@ public class Owlkb
 
     try
     {
-      sparqlcode = URLEncoder.encode(sparqlcode,"UTF-8");
+      sparqlcode = URLEncode(sparqlcode);
     }
     catch(Exception e)
     {
@@ -1605,7 +1525,7 @@ public class Owlkb
     }
   }
 
-  public String get_one_rdfs_label( OWLEntity e, OWLOntology o, OWLAnnotationProperty rdfslab )
+  public String get_one_rdfs_label( OWLEntity e, OWLOntology o )
   {
     Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab);
 
@@ -1694,21 +1614,16 @@ public class Owlkb
   public static Map<String, String> get_args(String query)
   {
     Map<String, String> result = new HashMap<String, String>();
-    try
+
+    for (String param : query.split("&"))
     {
-      for (String param : query.split("&"))
-      {
-        String pair[] = param.split("=");
-        if (pair.length > 1)
-          result.put(URLDecoder.decode(pair[0],"UTF-8"), URLDecoder.decode(pair[1],"UTF-8"));
-        else
-          result.put(URLDecoder.decode(pair[0],"UTF-8"), "");
-      }
+      String pair[] = param.split("=");
+      if (pair.length > 1)
+        result.put(URLDecode(pair[0]), URLDecode(pair[1]));
+      else
+        result.put(URLDecode(pair[0]), "");
     }
-    catch( Exception e )
-    {
-      ;
-    }
+
     return result;
   }
 
@@ -1891,4 +1806,40 @@ public class Owlkb
     return sb.toString();
   }
 
+  static String URLDecode(String x)
+  {
+    try
+    {
+      return java.net.URLDecoder.decode(x, "UTF-8");
+    }
+    catch( Exception e )
+    {
+      return null;
+    }
+  }
+
+  static String URLEncode(String x)
+  {
+    try
+    {
+      return java.net.URLEncoder.encode(x,"UTF-8");
+    }
+    catch( Exception e )
+    {
+      return null;
+    }
+  }
+
+  static String readfile(String filename)
+  {
+    try
+    {
+      return new java.util.Scanner(new File(filename)).useDelimiter("\\A").next();
+    }
+    catch(Exception e)
+    {
+      return null;
+    }
+  }
 }
+
