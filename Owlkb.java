@@ -175,6 +175,8 @@ public class Owlkb
     HttpServer server = HttpServer.create(new java.net.InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler("subterms", r, manager, ont, entityChecker, iri));
     server.createContext("/siblings", new NetHandler("siblings", r, manager, ont, entityChecker, iri));
+    server.createContext("/parents", new NetHandler("parents", r, manager, ont, entityChecker, iri));
+    server.createContext("/children", new NetHandler("children", r, manager, ont, entityChecker, iri));
     server.createContext("/subhierarchy", new NetHandler("subhierarchy", r, manager, ont, entityChecker, iri));
     server.createContext("/apinatomy", new NetHandler("apinatomy", r, manager, ont, entityChecker, iri));
     server.createContext("/eqterms", new NetHandler("eqterms", r, manager, ont, entityChecker, iri));
@@ -373,6 +375,8 @@ public class Owlkb
         {
           if ( srvtype.equals("subterms")
           ||   srvtype.equals("siblings")
+          ||   srvtype.equals("parents")
+          ||   srvtype.equals("children")
           ||   srvtype.equals("eqterms")
           ||   srvtype.equals("instances")
           ||   srvtype.equals("terms") )
@@ -383,6 +387,10 @@ public class Owlkb
               terms = getSubTerms(exp,r,false,false,verbose);
             else if ( srvtype.equals("siblings") )
               terms = getSiblings(exp,r,false,false,verbose);
+            else if ( srvtype.equals("parents") )
+              terms = getParents(exp,r,false,false,verbose);
+            else if ( srvtype.equals("children") )
+              terms = getChildren(exp,r,false,false,verbose);
             else if ( srvtype.equals("eqterms") )
               terms = addTerm(exp,r,m,o,iri,verbose );
             else if ( srvtype.equals("instances") )
@@ -479,6 +487,28 @@ public class Owlkb
 
     for ( Node<OWLClass> owlClassNode : subClasses )
       class_to_termlist( owlClassNode, idList, longURI, verbose );
+
+    return idList;
+  }
+
+  private ArrayList<String> getParents(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
+  {
+    Set<Node<OWLClass>> parentnodes = r.getSuperClasses( exp, true ).getNodes();
+    ArrayList<String> idList = new ArrayList<String>();
+
+    for ( Node<OWLClass> n : parentnodes )
+      class_to_termlist( n, idList, longURI, verbose );
+
+    return idList;
+  }
+
+  private ArrayList<String> getChildren(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
+  {
+    Set<Node<OWLClass>> childnodes = r.getSubClasses( exp, true ).getNodes();
+    ArrayList<String> idList = new ArrayList<String>();
+
+    for ( Node<OWLClass> n : childnodes )
+      class_to_termlist( n, idList, longURI, verbose );
 
     return idList;
   }
