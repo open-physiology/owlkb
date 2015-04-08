@@ -35,6 +35,22 @@ public class KBCaller
   }
 
   /*
+   * Get all parents (i.e., direct superclasses) of a given term.
+   */
+  public String parents( String exp ) throws IOException
+  {
+    return launch_http("/parents/" + encode( exp ) );
+  }
+
+  /*
+   * Get all children (i.e., direct subclasses) of a given term.
+   */
+  public String children( String exp ) throws IOException
+  {
+    return launch_http("/children/" + encode( exp ) );
+  }
+
+  /*
    * Get all sublings of given term.
    * Term X is a subling of term Y if there is an immediate
    * superterm Z of X such that Y is an immediate subterm
