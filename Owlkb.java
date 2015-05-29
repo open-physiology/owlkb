@@ -61,6 +61,8 @@ public class Owlkb
   public int port;          // Port number to listen on.  Default: 20080
   public String sparql;     // URL of SPARQL endpoint
   public boolean get_counts_from_feather; // For easy reversion in case SPARQL doesn't work
+  public String openPHACTS_appid;  // For querying openPHACTS API
+  public String openPHACTS_appkey; // For querying openPHACTS API
 
   /*
    * Variables to be initialized elsewhere than the command-line
@@ -190,6 +192,7 @@ public class Owlkb
     server.createContext("/shortestpath", new NetHandler("shortestpath", r, manager, ont, entityChecker, iri));
     server.createContext("/generate-triples", new NetHandler("generate-triples", r, manager, ont, entityChecker, iri));
     server.createContext("/subgraph", new NetHandler("subgraph", r, manager, ont, entityChecker, iri));
+    server.createContext("/similar_molecules", new NetHandler("similar_molecules", r, manager, ont, entityChecker, iri));
 
     server.createContext("/gui", new NetHandler("gui", r, manager, ont, entityChecker, iri));
 
@@ -299,6 +302,12 @@ public class Owlkb
       if ( srvtype.equals("shortestpath") )
       {
         response = compute_shortestpath_response( o, iri, m, r, req );
+        fJson = true;
+      }
+      else
+      if ( srvtype.equals("similar_molecules") )
+      {
+        response = compute_similar_molecules_response( o, iri, m, r, ec, req );
         fJson = true;
       }
       else
@@ -786,6 +795,8 @@ public class Owlkb
     help_only = false;
     port = 20080;
     get_counts_from_feather = false;
+    openPHACTS_appid = null;
+    openPHACTS_appkey = null;
 
     int i;
     String flag;
@@ -831,6 +842,13 @@ public class Owlkb
         System.out.println( " interaction with a triple store.)"                    );
         System.out.println( "(Default: null)"                                       );
         System.out.println( "------------------------------------"                  );
+/*
+        System.out.println( "-openPHACTSid <ID for openPHACTS API>"                 );
+        System.out.println( "-openPHACTSkey <App key for openPHACTS API>"           );
+        System.out.println( "(For enabling Owlkb to query the openPHACTS"           );
+        System.out.println( " API.)"                                                );
+        System.out.println( "------------------------------------"                  );
+*/
         System.out.println( "-help"                                                 );
         System.out.println( "(Displays this helpfile)"                              );
         System.out.println( "" );
@@ -889,6 +907,24 @@ public class Owlkb
           System.out.println( "hd_save can be set to: true, false" );
           help_only = true;
           return;
+        }
+        i++;
+      }
+      else if ( flag.equals("openphactsid") )
+      {
+        if ( i+1 < args.length )
+        {
+          openPHACTS_appid = args[i+1];
+          System.out.println( "Set to use "+args[i+1]+" as openPHACTS Application ID" );
+        }
+        i++;
+      }
+      else if ( flag.equals("openphactskey") )
+      {
+        if ( i+1 < args.length )
+        {
+          openPHACTS_appkey = args[i+1];
+          System.out.println( "Set to use "+args[i+1]+" as openPHACTS Application Key" );
         }
         i++;
       }
@@ -1121,6 +1157,54 @@ public class Owlkb
     }
 
     return req;
+  }
+
+  public String compute_similar_molecules_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, OWLEntityChecker ec, String req )
+  {
+    if ( openPHACTS_appid == null || openPHACTS_appkey == null )
+      return "{\"error\": \"To use the similar_molecules command, OWLKB must have openPHACTS appID and appKey specified (using Owlkb's command-line arguments)\"}";
+
+    if ( !req.substring(0,4).equals("http") )
+      req = "http://rdf.ebi.ac.uk/resource/chembl/molecule/" + req;
+
+    StringBuilder sb = new StringBuilder("https://beta.openphacts.org/1.5/compound/classifications?uri=");
+    sb.append( URLEncode( req ) );
+    sb.append( "&_format=json&app_id=" );
+    sb.append( openPHACTS_appid );
+    sb.append( "&app_key=" );
+    sb.append( openPHACTS_appkey );
+
+    String raw = queryURL( sb.toString() );
+
+    if ( raw == null )
+      return "{\"error\": \"Could not get details about indicated molecule from OpenPHACTS\"}";
+
+    String classification = naive_JSON_parse( raw, "hasChebiClassification", "[", "]" );
+
+    if ( raw == null )
+      return "{\"error\": \"Could not parse OpenPHACTS's response\"}";
+
+    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("CHEBI_[\\d]*").matcher(classification);
+
+    Set<OWLClass> parents = new HashSet<OWLClass>();
+
+    while ( matcher.find() )
+    {
+      String chebi = matcher.group();
+      OWLClassExpression exp = parse_manchester( chebi, o, ec );
+
+      if ( exp == null )
+        return "{\"error\": \"OpenPHACTS indicated a CHEBI term, "+chebi+", unrecognized by OWLKB\"}";
+
+      parents.addAll( reasoner.getSuperClasses( exp, true ).getFlattened() );
+    }
+
+    Set<OWLClass> siblings = new HashSet<OWLClass>();
+
+    for ( OWLClass parent : parents )
+      siblings.addAll( reasoner.getSubClasses( parent, true ).getFlattened() );
+
+    return "{\"error\": \"This command is currently under construction\"}";
   }
 
   public String compute_subgraph_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
