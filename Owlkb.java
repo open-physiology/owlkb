@@ -232,6 +232,7 @@ public class Owlkb
       Headers requestHeaders = t.getRequestHeaders();
       boolean fJson = ( requestHeaders.get("Accept") != null && requestHeaders.get("Accept").contains("application/json") );
       boolean verbose = false;
+      boolean longURI = false;
 
       String response;
 
@@ -253,6 +254,9 @@ public class Owlkb
           verbose = true;
           fJson = true;
         }
+
+        if ( args.containsKey( "longURI" ) )
+          longURI = true;
       }
       else
         args = new HashMap<String,String>();
@@ -407,7 +411,7 @@ public class Owlkb
             else if ( srvtype.equals("terms") )
               terms = getTerms(exp,r,verbose);
 
-            response = compute_response( terms, fJson, false, verbose );
+            response = compute_response( terms, fJson, longURI, verbose );
           }
           else if ( srvtype.equals("subhierarchy") )
           {
