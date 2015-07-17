@@ -625,7 +625,7 @@ public class Owlkb
   {
     OWLEntity e = shorts.getEntity(shortform);
 
-    if ( e == null || !e.isOWLClass() )
+    if ( e == null )
       return null;
 
     ArrayList<String> idList = new ArrayList<String>();
