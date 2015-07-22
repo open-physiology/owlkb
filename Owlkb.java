@@ -52,27 +52,27 @@ public class Owlkb
   /*
    * Variables to be specified by command-line argument.
    */
-  public String rname;      // Reasoner name.  Default: "elk"
-  public boolean hd_save;   // Whether to save changes to harddrive.  Default: true
-  public String ucl_syntax; // Endpoint for UCL syntax server.  Default: null
+  public String reasonerName;      // Reasoner name.  Default: "elk"
+  public boolean hdSave;   // Whether to save changes to harddrive.  Default: true
+  public String uclSyntax; // Endpoint for UCL syntax server.  Default: null
   public String kbNs;       // Namespace for RICORDO_### terms.  Default: "http://www.ricordo.eu/ricordo.owl"
-  public String kbfilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
-  public boolean help_only; // Whether to show helpscreen and exit.  Default: false
+  public String kbFilename; // Name of ontology file.  Default: "/home/sarala/testkb/ricordo.owl"
+  public boolean helpOnly; // Whether to show helpscreen and exit.  Default: false
   public int port;          // Port number to listen on.  Default: 20080
   public String sparql;     // URL of SPARQL endpoint
-  public boolean get_counts_from_feather; // For easy reversion in case SPARQL doesn't work
-  public String openPHACTS_appid;  // For querying openPHACTS API
-  public String openPHACTS_appkey; // For querying openPHACTS API
+  public boolean getCountsFromFeather; // For easy reversion in case SPARQL doesn't work
+  public String openPhactsAppId;  // For querying openPHACTS API
+  public String openPhactsAppKey; // For querying openPHACTS API
 
   /*
    * Variables to be initialized elsewhere than the command-line
    */
   OWLDataFactory df;
-  BidirectionalShortFormProvider shorts;
-  BidirectionalShortFormProviderAdapter annovider;
-  OWLOntologyImportsClosureSetProvider ontset;
-  Set<OWLOntology> imp_closure;
-  OWLAnnotationProperty rdfslab;
+  BidirectionalShortFormProvider shortformProvider;
+  BidirectionalShortFormProviderAdapter annotProvider;
+  OWLOntologyImportsClosureSetProvider ontSet;
+  Set<OWLOntology> importClosure;
+  OWLAnnotationProperty rdfsLabel;
 
   public static void main(String [] args) throws Exception
   {
@@ -86,9 +86,9 @@ public class Owlkb
    */
   public void run(String [] args) throws Exception
   {
-    init_owlkb(args);
+    initOwlkb(args);
 
-    if ( help_only )
+    if ( helpOnly )
       return;
 
     /*
@@ -96,60 +96,60 @@ public class Owlkb
      */
     OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
 
-    logstring( "Loading ontology...");
+    logString( "Loading ontology...");
 
     OWLOntologyLoaderConfiguration config = new OWLOntologyLoaderConfiguration();         // If the main ontology imports an RDF fragment,
     config = config.setMissingOntologyHeaderStrategy(OWLOntologyLoaderConfiguration.MissingOntologyHeaderStrategy.IMPORT_GRAPH);  // prevent that fragment from being saved into the ontology.
 
-    File kbfile;
+    File kbFile;
     OWLOntology ont;
     try
     {
-      kbfile = new File(kbfilename);
-      ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbfile),config);
+      kbFile = new File(kbFilename);
+      ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbFile),config);
     }
     catch ( Exception e )
     {
-      System.out.println( "Could not load file: "+kbfilename );
+      System.out.println( "Could not load file: "+kbFilename );
       System.out.println( "To specify a different filename, run with -file <filename>" );
       System.out.println( "Also, make sure java has permission to access the file." );
       return;
     }
 
-    logstring( "Ontology is loaded.");
+    logString( "Ontology is loaded.");
 
     IRI iri = manager.getOntologyDocumentIRI(ont);
 
     /*
      * Load the ontologies imported by the main ontology (e.g., the reference ontologies)
      */
-    imp_closure = ont.getImportsClosure();
-    ontset = new OWLOntologyImportsClosureSetProvider(manager, ont);
+    importClosure = ont.getImportsClosure();
+    ontSet = new OWLOntologyImportsClosureSetProvider(manager, ont);
 
     /*
      * Establish infrastructure for converting long URLs to short IRIs and vice versa
      * (e.g., converting between "http://purl.org/obo/owlapi/quality#PATO_0000014" and "PATO_0000014")
      */
-    shorts = new BidirectionalShortFormProviderAdapter(manager, imp_closure, new org.semanticweb.owlapi.util.SimpleShortFormProvider());
-    OWLEntityChecker entityChecker = new ShortFormEntityChecker(shorts);
+    shortformProvider = new BidirectionalShortFormProviderAdapter(manager, importClosure, new org.semanticweb.owlapi.util.SimpleShortFormProvider());
+    OWLEntityChecker entityChecker = new ShortFormEntityChecker(shortformProvider);
 
     /*
      * Infrastructure for searching for classes by label
      */
-    List<OWLAnnotationProperty> labeltype_list = new ArrayList<OWLAnnotationProperty>();
-    labeltype_list.add(rdfslab);
-    Map<OWLAnnotationProperty,List<String>> emptymap = new HashMap<OWLAnnotationProperty,List<String>>();
-    AnnotationValueShortFormProvider pre_annovider = new AnnotationValueShortFormProvider(labeltype_list, emptymap, ontset );
-    annovider = new BidirectionalShortFormProviderAdapter(manager, imp_closure, pre_annovider);
+    List<OWLAnnotationProperty> labeltypeList = new ArrayList<OWLAnnotationProperty>();
+    labeltypeList.add(rdfsLabel);
+    Map<OWLAnnotationProperty,List<String>> emptyMap = new HashMap<OWLAnnotationProperty,List<String>>();
+    AnnotationValueShortFormProvider preAnnotProvider = new AnnotationValueShortFormProvider(labeltypeList, emptyMap, ontSet );
+    annotProvider = new BidirectionalShortFormProviderAdapter(manager, importClosure, preAnnotProvider);
 
     /*
      * Initiate the reasoner
      */
-    logstring( "Establishing "+rname+" reasoner...");
+    logString( "Establishing "+reasonerName+" reasoner...");
 
     OWLReasoner r;
 
-    if ( rname.equals("elk") )
+    if ( reasonerName.equals("elk") )
     {
       OWLReasonerFactory rf = new ElkReasonerFactory();
       r = rf.createReasoner(ont);
@@ -157,22 +157,22 @@ public class Owlkb
     else
       r = new org.semanticweb.HermiT.Reasoner(ont);  //Hermit reasoner
 
-    logstring( "Reasoner established.");
+    logString( "Reasoner established.");
 
     /*
      * Precompute inferences.
      */
-    logstring( "Precomputing inferences...");
+    logString( "Precomputing inferences...");
 
-    long start_time = System.nanoTime();
+    long startTime = System.nanoTime();
     r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
 
-    logstring( "Finished precomputing inferences (took "+(System.nanoTime()-start_time)/1000000+"ms)" );
+    logString( "Finished precomputing inferences (took "+(System.nanoTime()-startTime)/1000000+"ms)" );
 
     /*
      * Launch HTTP server
      */
-    logstring( "Initiating server...");
+    logString( "Initiating server...");
 
     HttpServer server = HttpServer.create(new java.net.InetSocketAddress(port), 0 );
     server.createContext("/subterms", new NetHandler("subterms", r, manager, ont, entityChecker, iri));
@@ -199,21 +199,21 @@ public class Owlkb
     server.setExecutor(null);
     server.start();
 
-    logstring( "Server initiated.");
+    logString( "Server initiated.");
   }
 
   class NetHandler implements com.sun.net.httpserver.HttpHandler
   {
-    String srvtype;
+    String srvType;
     OWLReasoner r;
     OWLOntologyManager m;
     OWLOntology o;
     OWLEntityChecker ec;
     IRI iri;
 
-    public NetHandler(String srvtype, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, IRI iri)
+    public NetHandler(String srvType, OWLReasoner r, OWLOntologyManager m, OWLOntology o, OWLEntityChecker ec, IRI iri)
     {
-      this.srvtype = srvtype;
+      this.srvType = srvType;
       this.r = r;
       this.m = m;
       this.o = o;
@@ -223,9 +223,9 @@ public class Owlkb
 
     public void handle(HttpExchange t) throws java.io.IOException
     {
-      if ( srvtype.equals("gui") )
+      if ( srvType.equals("gui") )
       {
-        send_gui(t);
+        sendGui(t);
         return;
       }
 
@@ -236,15 +236,15 @@ public class Owlkb
 
       String response;
 
-      String req = t.getRequestURI().toString().substring(2+srvtype.length());
+      String req = t.getRequestURI().toString().substring(2+srvType.length());
 
       Map<String,String> args;
-      int qmark = req.indexOf("?");
-      if ( qmark != -1 )
+      int qMark = req.indexOf("?");
+      if ( qMark != -1 )
       {
-        String raw_args = req.substring(qmark+1);
-        req = req.substring(0,qmark);
-        args = get_args( raw_args );
+        String rawArgs = req.substring(qMark+1);
+        req = req.substring(0,qMark);
+        args = getArgs( rawArgs );
 
         if ( !fJson && args.containsKey( "json" ) )
           fJson = true;
@@ -263,111 +263,111 @@ public class Owlkb
 
       req = URLDecode(req);
 
-      if ( check_for_non_EL( req, t ) )
+      if ( checkForNonEL( req, t ) )
         return;
 
-      logstring( "Got request: ["+req+"]" );
-      long start_time = System.nanoTime();
+      logString( "Got request: ["+req+"]" );
+      long startTime = System.nanoTime();
 
-      if ( srvtype.equals("labels") || srvtype.equals("search") )
+      if ( srvType.equals("labels") || srvType.equals("search") )
       {
-        boolean isLabels = srvtype.equals("labels");
+        boolean isLabels = srvType.equals("labels");
 
         ArrayList<String> terms = (isLabels ? getLabels( req, o ) : SearchByLabel( req, o, verbose ));
 
         if ( terms == null || terms.isEmpty() )
           response = (isLabels ? "No class by that shortform." : "No class with that label.");
         else
-          response = compute_response( terms, fJson, false, verbose && !isLabels );
+          response = computeResponse( terms, fJson, false, verbose && !isLabels );
       }
       else
-      if ( srvtype.equals("addlabel") )
-        response = compute_addlabel_response( o, iri, m, req, fJson );
+      if ( srvType.equals("addlabel") )
+        response = computeAddlabelResponse( o, iri, m, req, fJson );
       else
-      if ( srvtype.equals("rdfstore") )
-        response = compute_rdfstore_response( o, iri, m, ec, r, req );
+      if ( srvType.equals("rdfstore") )
+        response = computeRdfstoreResponse( o, iri, m, ec, r, req );
       else
-      if ( srvtype.equals("apinatomy") )
+      if ( srvType.equals("apinatomy") )
       {
-        response = compute_apinatomy_response( o, iri, m, r, req );
+        response = computeApinatomyResponse( o, iri, m, r, req );
         fJson = true;
       }
       else
-      if ( srvtype.equals("generate-triples") )
+      if ( srvType.equals("generate-triples") )
       {
         if ( t.getRemoteAddress().getAddress().isLoopbackAddress() )
-          response = compute_generate_triples_response( o, iri, m, r, req );
+          response = computeGenerateTriplesResponse( o, iri, m, r, req );
         else
           response = "{\"error\": \"Only requests originating from localhost can run generate-triples\"}";
 
         fJson = true;
       }
       else
-      if ( srvtype.equals("shortestpath") )
+      if ( srvType.equals("shortestpath") )
       {
-        response = compute_shortestpath_response( o, iri, m, r, req );
+        response = computeShortestpathResponse( o, iri, m, r, req );
         fJson = true;
       }
       else
-      if ( srvtype.equals("similar_molecules") )
+      if ( srvType.equals("similar_molecules") )
       {
-        response = compute_similar_molecules_response( o, iri, m, r, ec, req );
+        response = computeSimilarMoleculesResponse( o, iri, m, r, ec, req );
         fJson = true;
       }
       else
-      if ( srvtype.equals("subgraph") )
+      if ( srvType.equals("subgraph") )
       {
-        response = compute_subgraph_response( o, iri, m, r, req );
+        response = computeSubgraphResponse( o, iri, m, r, req );
         fJson = true;
       }
       else
       try
       {
         OWLClassExpression exp;
-        String Manchester_Error = "";
+        String manchesterError = "";
 
-        if ( ucl_syntax != null )
+        if ( uclSyntax != null )
         {
-          String LOLS_reply = queryURL( ucl_syntax + URLEncode(req) );
+          String lolsReply = queryURL( uclSyntax + URLEncode(req) );
 
-          if ( LOLS_reply == null )
+          if ( lolsReply == null )
           {
-            exp = parse_manchester( req, o, ec );
+            exp = parseManchester( req, o, ec );
             if ( exp == null )
-              Manchester_Error = "Could not connect to LOLS for UCL syntax parsing";
+              manchesterError = "Could not connect to LOLS for UCL syntax parsing";
           }
           else
           {
-            String error = naive_JSON_parse( LOLS_reply, "Error" );
+            String error = naiveJsonParse( lolsReply, "Error" );
             if ( error != null && !error.trim().equals("") )
             {
-              Manchester_Error = error.trim();
+              manchesterError = error.trim();
               exp = null;
             }
             else
             {
-              String ambigs = naive_JSON_parse( LOLS_reply, "Ambiguities", "\n  [", "\n  ]" );
+              String ambigs = naiveJsonParse( lolsReply, "Ambiguities", "\n  [", "\n  ]" );
               if ( ambigs != null && !ambigs.trim().equals("") )
               {
-                Manchester_Error = "{\n  \"Ambiguities\":\n  [\n    " + ambigs.trim() + "\n  ]\n}";
+                manchesterError = "{\n  \"Ambiguities\":\n  [\n    " + ambigs.trim() + "\n  ]\n}";
                 exp = null;
               }
               else
               {
-                String ucl_to_manchester = naive_JSON_parse( LOLS_reply, "Result" );
-                if ( ucl_to_manchester == null )
+                String uclToManchester = naiveJsonParse( lolsReply, "Result" );
+                if ( uclToManchester == null )
                 {
-                  Manchester_Error = LOLS_reply.trim();
+                  manchesterError = lolsReply.trim();
                   exp = null;
                 }
                 else
                 {
-                  exp = parse_manchester( ucl_to_manchester, o, ec );
+                  exp = parseManchester( uclToManchester, o, ec );
                   if ( exp == null )
                   {
-                    String possible_error = naive_JSON_parse( LOLS_reply, "Possible_error" );
-                    if ( possible_error != null )
-                      Manchester_Error = possible_error;
+                    String possibleError = naiveJsonParse( lolsReply, "Possible_error" );
+                    if ( possibleError != null )
+                      manchesterError = possibleError;
                   }
                 }
               }
@@ -375,50 +375,50 @@ public class Owlkb
           }
         }
         else
-          exp = parse_manchester( req, o, ec );
+          exp = parseManchester( req, o, ec );
 
         if ( exp == null )
         {
-          if ( !Manchester_Error.equals("") )
-            response = Manchester_Error;
+          if ( !manchesterError.equals("") )
+            response = manchesterError;
           else
             response = "Malformed Manchester query";
         }
         else
         {
-          if ( srvtype.equals("subterms")
-          ||   srvtype.equals("siblings")
-          ||   srvtype.equals("parents")
-          ||   srvtype.equals("children")
-          ||   srvtype.equals("eqterms")
-          ||   srvtype.equals("instances")
-          ||   srvtype.equals("terms") )
+          if ( srvType.equals("subterms")
+          ||   srvType.equals("siblings")
+          ||   srvType.equals("parents")
+          ||   srvType.equals("children")
+          ||   srvType.equals("eqterms")
+          ||   srvType.equals("instances")
+          ||   srvType.equals("terms") )
           {
             ArrayList<String> terms = null;
 
-            if ( srvtype.equals("subterms") )
+            if ( srvType.equals("subterms") )
               terms = getSubTerms(exp,r,false,false,verbose);
-            else if ( srvtype.equals("siblings") )
+            else if ( srvType.equals("siblings") )
               terms = getSiblings(exp,r,false,false,verbose);
-            else if ( srvtype.equals("parents") )
+            else if ( srvType.equals("parents") )
               terms = getParents(exp,r,false,false,verbose);
-            else if ( srvtype.equals("children") )
+            else if ( srvType.equals("children") )
               terms = getChildren(exp,r,false,false,verbose);
-            else if ( srvtype.equals("eqterms") )
+            else if ( srvType.equals("eqterms") )
               terms = addTerm(exp,r,m,o,iri,verbose );
-            else if ( srvtype.equals("instances") )
+            else if ( srvType.equals("instances") )
               terms = getInstances(exp,r,verbose);
-            else if ( srvtype.equals("terms") )
+            else if ( srvType.equals("terms") )
               terms = getTerms(exp,r,verbose);
 
-            response = compute_response( terms, fJson, longURI, verbose );
+            response = computeResponse( terms, fJson, longURI, verbose );
           }
-          else if ( srvtype.equals("subhierarchy") )
+          else if ( srvType.equals("subhierarchy") )
           {
-            response = compute_subhierarchy_response( exp, r );
+            response = computeSubhierarchyResponse( exp, r );
           }
-          else if ( srvtype.equals("test") )
-            response = compute_demo_response( exp, r, m, o, iri, start_time, fJson, verbose );
+          else if ( srvType.equals("test") )
+            response = computeDemoResponse( exp, r, m, o, iri, startTime, fJson, verbose );
           else
             response = "Unrecognized request";
         }
@@ -431,23 +431,23 @@ public class Owlkb
       String callback = args.get("callback"); // JSONP support
       if ( callback != null )
       {
-        String jsonp_header = "typeof "+callback+" === 'function' && "+callback+"(\n";
-        response = jsonp_header + response + ");";
+        String jsonpHeader = "typeof "+callback+" === 'function' && "+callback+"(\n";
+        response = jsonpHeader + response + ");";
       }
 
-      logstring( "Transmitting response..." );
+      logString( "Transmitting response..." );
 
-      send_response( t, response, fJson );
+      sendResponse( t, response, fJson );
 
       /*
        * Measure computation time in ms.
        */
-      long runtime = (System.nanoTime() - start_time) / 1000000;
-      logstring( "It took "+runtime+"ms to handle the request." );
+      long runTime = (System.nanoTime() - startTime) / 1000000;
+      logString( "It took "+runTime+"ms to handle the request." );
     }
   }
 
-  public boolean check_for_non_EL( String req, HttpExchange t )
+  public boolean checkForNonEL( String req, HttpExchange t )
   {
     /*
      * To do: improve this function, which is currently just a bandaid
@@ -458,12 +458,12 @@ public class Owlkb
 
       if ( lower.contains(" or ") )
       {
-        send_response( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL.", false );
+        sendResponse( t, "Disjunction ('or') is forbidden because it would make the ontology non-EL.", false );
         return true;
       }
       if ( lower.contains(" not ") || lower.substring(0,4).equals("not ") )
       {
-        send_response( t, "Negation ('not') is forbidden because it would make the ontology non-EL.", false );
+        sendResponse( t, "Negation ('not') is forbidden because it would make the ontology non-EL.", false );
         return true;
       }
 
@@ -475,7 +475,7 @@ public class Owlkb
     }
   }
 
-  public void send_response( HttpExchange t, String response, boolean fJson ) throws java.io.IOException
+  public void sendResponse( HttpExchange t, String response, boolean fJson ) throws java.io.IOException
   {
     Headers h = t.getResponseHeaders();
     h.add("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -490,7 +490,7 @@ public class Owlkb
     os.write(response.getBytes());
     os.close();
 
-    logstring( "Response transmitted.");
+    logString( "Response transmitted.");
   }
 
   private ArrayList<String> getSubTerms(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
@@ -499,65 +499,65 @@ public class Owlkb
     NodeSet<OWLClass> subClasses = r.getSubClasses(exp, direct);
 
     for ( Node<OWLClass> owlClassNode : subClasses )
-      class_to_termlist( owlClassNode, idList, longURI, verbose );
+      classToTermlist( owlClassNode, idList, longURI, verbose );
 
     return idList;
   }
 
   private ArrayList<String> getParents(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
   {
-    Set<Node<OWLClass>> parentnodes = r.getSuperClasses( exp, true ).getNodes();
+    Set<Node<OWLClass>> parentNodes = r.getSuperClasses( exp, true ).getNodes();
     ArrayList<String> idList = new ArrayList<String>();
 
-    for ( Node<OWLClass> n : parentnodes )
-      class_to_termlist( n, idList, longURI, verbose );
+    for ( Node<OWLClass> n : parentNodes )
+      classToTermlist( n, idList, longURI, verbose );
 
     return idList;
   }
 
   private ArrayList<String> getChildren(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
   {
-    Set<Node<OWLClass>> childnodes = r.getSubClasses( exp, true ).getNodes();
+    Set<Node<OWLClass>> childNodes = r.getSubClasses( exp, true ).getNodes();
     ArrayList<String> idList = new ArrayList<String>();
 
-    for ( Node<OWLClass> n : childnodes )
-      class_to_termlist( n, idList, longURI, verbose );
+    for ( Node<OWLClass> n : childNodes )
+      classToTermlist( n, idList, longURI, verbose );
 
     return idList;
   }
 
   private ArrayList<String> getSiblings(OWLClassExpression exp, OWLReasoner r, boolean longURI, boolean direct, boolean verbose )
   {
-    Set<Node<OWLClass>> parentnodes = r.getSuperClasses( exp, true ).getNodes();
+    Set<Node<OWLClass>> parentNodes = r.getSuperClasses( exp, true ).getNodes();
     HashSet<String> sibs = new HashSet<String>();
 
-    ArrayList<String> retval;
+    ArrayList<String> retVal;
 
     if ( verbose )
-      retval = new ArrayList<String>();
+      retVal = new ArrayList<String>();
     else
-      retval = null;
+      retVal = null;
 
-    for ( Node<OWLClass> pnode : parentnodes )
+    for ( Node<OWLClass> pnode : parentNodes )
     {
       OWLClass parent = pnode.getRepresentativeElement();
-      NodeSet<OWLClass> childnodes = r.getSubClasses( parent, true );
+      NodeSet<OWLClass> childNodes = r.getSubClasses( parent, true );
 
-      String plabel = null, pID = null;
+      String parentLabel = null, pID = null;
 
       if ( verbose )
       {
-        plabel = LabelByClass(parent);
+        parentLabel = labelByClass(parent);
 
-        if ( plabel == null )
-          plabel = "null";
+        if ( parentLabel == null )
+          parentLabel = "null";
 
-        pID = shorturl(parent.getIRI().toString());
+        pID = shortUrl(parent.getIRI().toString());
       }
 
-      for ( OWLClass c : childnodes.getFlattened() )
+      for ( OWLClass c : childNodes.getFlattened() )
       {
-        String sibID = shorturl(c.getIRI().toString());
+        String sibID = shortUrl(c.getIRI().toString());
 
         if ( sibs.contains( sibID ) )
           continue;
@@ -566,19 +566,19 @@ public class Owlkb
 
         if ( verbose )
         {
-          String label = LabelByClass(c);
+          String label = labelByClass(c);
 
           if ( label == null )
             label = "null";
 
-          String jsobj = "{\n   \"sibling\":\""+sibID+"\",\n   \"label\":\""+label+"\",\n   \"parent\":\""+pID+"\",\n   \"parent_label\":\""+plabel+"\"\n}";
-          retval.add(jsobj);
+          String jsObj = "{\n   \"sibling\":\""+sibID+"\",\n   \"label\":\""+label+"\",\n   \"parent\":\""+pID+"\",\n   \"parent_label\":\""+parentLabel+"\"\n}";
+          retVal.add(jsObj);
         }
       }
     }
 
     if ( verbose )
-      return retval;
+      return retVal;
     else
       return new ArrayList<String>(sibs);
   }
@@ -589,7 +589,7 @@ public class Owlkb
     NodeSet<OWLNamedIndividual> inst = r.getInstances(exp, false);
 
     for (Node<OWLNamedIndividual> ind : inst)
-      individual_to_termlist( ind, idList, false, verbose );
+      individualToTermlist( ind, idList, false, verbose );
 
     return idList;
   }
@@ -600,16 +600,16 @@ public class Owlkb
     Node<OWLClass> equivalentClasses = r.getEquivalentClasses(exp);
 
     for ( OWLClass c : equivalentClasses.getEntities() )
-      obj_to_termlist( c, idList, false, verbose );
+      objToTermlist( c, idList, false, verbose );
 
     return idList;
   }
 
-  public String LabelByClass(OWLEntity c)
+  public String labelByClass(OWLEntity c)
   {
-    for ( OWLOntology imp : imp_closure )
+    for ( OWLOntology imp : importClosure )
     {
-      Set<OWLAnnotation> annots = c.getAnnotations( imp, rdfslab );
+      Set<OWLAnnotation> annots = c.getAnnotations( imp, rdfsLabel );
 
       for ( OWLAnnotation a : annots )
       {
@@ -623,20 +623,20 @@ public class Owlkb
 
   public ArrayList<String> getLabels(String shortform, OWLOntology o )
   {
-    OWLEntity e = shorts.getEntity(shortform);
+    OWLEntity e = shortformProvider.getEntity(shortform);
 
     if ( e == null )
       return null;
 
     ArrayList<String> idList = new ArrayList<String>();
 
-    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab );
+    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfsLabel );
 
     if ( annots.isEmpty() )
     {
-      for ( OWLOntology imp : imp_closure )
+      for ( OWLOntology imp : importClosure )
       {
-        annots = e.getAnnotations( imp, rdfslab );
+        annots = e.getAnnotations( imp, rdfsLabel );
         if ( !annots.isEmpty() )
           break;
       }
@@ -656,7 +656,7 @@ public class Owlkb
 
   public ArrayList<String> SearchByLabel(String label, OWLOntology o, boolean verbose )
   {
-    Set<OWLEntity> ents = annovider.getEntities(label);
+    Set<OWLEntity> ents = annotProvider.getEntities(label);
 
     if ( ents == null || ents.isEmpty() )
       return null;
@@ -666,7 +666,7 @@ public class Owlkb
     for ( OWLEntity e : ents )
     {
       if ( e.isOWLClass() && !e.asOWLClass().isAnonymous() )
-        obj_to_termlist( e, idList, false, verbose );
+        objToTermlist( e, idList, false, verbose );
     }
 
     return idList;
@@ -687,24 +687,24 @@ public class Owlkb
     ArrayList<String> idList = getEquivalentTerms(exp,r,verbose);
     if(idList.isEmpty())
     {
-      String ricordoid = String.valueOf(System.currentTimeMillis());
-      OWLClass newowlclass = df.getOWLClass(IRI.create(kbNs + ricordoid));
+      String ricordoID = String.valueOf(System.currentTimeMillis());
+      OWLClass newOwlClass = df.getOWLClass(IRI.create(kbNs + ricordoID));
 
-      mgr.addAxiom(ont, df.getOWLEquivalentClassesAxiom(newowlclass, exp) );
+      mgr.addAxiom(ont, df.getOWLEquivalentClassesAxiom(newOwlClass, exp) );
 
-      if ( rname.equals("elk") )
+      if ( reasonerName.equals("elk") )
         r.flush();
 
-      maybe_save_ontology( ont, iri, mgr );
+      maybeSaveOntology( ont, iri, mgr );
 
-      obj_to_termlist( newowlclass, idList, false, verbose );
+      objToTermlist( newOwlClass, idList, false, verbose );
       r.precomputeInferences(InferenceType.CLASS_HIERARCHY);
     }
 
     return idList;
   }
 
-  public static String shorturl(String url)
+  public static String shortUrl(String url)
   {
     int i = url.lastIndexOf("#");
 
@@ -723,12 +723,12 @@ public class Owlkb
   /*
    * Basic logging to stdout
    */
-  public static void logstring( String x )
+  public static void logString( String x )
   {
     System.out.println( x );
   }
 
-  public String compute_response( ArrayList<String> terms, boolean fJson, boolean longURI, boolean verbose )
+  public String computeResponse( ArrayList<String> terms, boolean fJson, boolean longURI, boolean verbose )
   {
     StringBuilder x = new StringBuilder();
 
@@ -764,7 +764,7 @@ public class Owlkb
         else
           x.append(",\n ");
 
-        x.append( "\"" + (longURI ? termp : shorturl(termp)) +"\"" );
+        x.append( "\"" + (longURI ? termp : shortUrl(termp)) +"\"" );
       }
       x.append("]");
     }
@@ -773,7 +773,7 @@ public class Owlkb
       x.append("<table><tr><th>ID</th></tr>");
 
       for ( String termp : terms )
-        x.append("<tr><td>" + (longURI ? termp : shorturl(termp)) +"</td></tr>");
+        x.append("<tr><td>" + (longURI ? termp : shortUrl(termp)) +"</td></tr>");
 
       x.append("</table>");
     }
@@ -781,26 +781,26 @@ public class Owlkb
     return x.toString();
   }
 
-  public void init_owlkb( String [] args )
+  public void initOwlkb( String [] args )
   {
     df = OWLManager.getOWLDataFactory();
-    rdfslab = df.getRDFSLabel();
+    rdfsLabel = df.getRDFSLabel();
 
-    parse_commandline_arguments(args);
+    parseCommandlineArguments(args);
   }
 
-  public void parse_commandline_arguments( String [] args )
+  public void parseCommandlineArguments( String [] args )
   {
-    rname = "elk";
-    hd_save = true;
+    reasonerName = "elk";
+    hdSave = true;
     kbNs = "http://www.ricordo.eu/ricordo.owl#RICORDO_";
-    kbfilename = "/home/sarala/testkb/ricordo.owl";  // Keep this silly default for backward compatibility
+    kbFilename = "/home/sarala/testkb/ricordo.owl";  // Keep this silly default for backward compatibility
     sparql = null;
-    help_only = false;
+    helpOnly = false;
     port = 20080;
-    get_counts_from_feather = false;
-    openPHACTS_appid = null;
-    openPHACTS_appkey = null;
+    getCountsFromFeather = false;
+    openPhactsAppId = null;
+    openPhactsAppKey = null;
 
     int i;
     String flag;
@@ -856,7 +856,7 @@ public class Owlkb
         System.out.println( "-help"                                                 );
         System.out.println( "(Displays this helpfile)"                              );
         System.out.println( "" );
-        help_only = true;
+        helpOnly = true;
         return;
       }
 
@@ -871,7 +871,7 @@ public class Owlkb
           catch( Exception e )
           {
             System.out.println( "Port must be a number." );
-            help_only = true;
+            helpOnly = true;
             return;
           }
           System.out.println( "Owlkb will listen on port "+args[++i] );
@@ -879,7 +879,7 @@ public class Owlkb
         else
         {
           System.out.println( "Which port do you want the server to listen on?" );
-          help_only = true;
+          helpOnly = true;
           return;
         }
       }
@@ -887,29 +887,29 @@ public class Owlkb
       {
         if ( i+1 < args.length && (args[i+1].equals("elk") || args[i+1].equals("hermit")) )
         {
-          rname = args[++i];
-          System.out.println( "Using "+rname+" as reasoner" );
+          reasonerName = args[++i];
+          System.out.println( "Using "+reasonerName+" as reasoner" );
         }
         else
         {
           System.out.println( "Valid reasoners are: ELK, HermiT" );
-          help_only = true;
+          helpOnly = true;
           return;
         }
       }
       else if ( flag.equals("hd") || flag.equals("hd_save") || flag.equals("save") )
       {
         if ( i+1 < args.length && (args[i+1].equals("t") || args[i+1].equals("true")) )
-          hd_save = true;
+          hdSave = true;
         else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
         {
-          hd_save = false;
+          hdSave = false;
           System.out.println( "Saving changes to hard drive: disabled." );
         }
         else
         {
           System.out.println( "hd_save can be set to: true, false" );
-          help_only = true;
+          helpOnly = true;
           return;
         }
         i++;
@@ -918,7 +918,7 @@ public class Owlkb
       {
         if ( i+1 < args.length )
         {
-          openPHACTS_appid = args[i+1];
+          openPhactsAppId = args[i+1];
           System.out.println( "Set to use "+args[i+1]+" as openPHACTS Application ID" );
         }
         i++;
@@ -927,7 +927,7 @@ public class Owlkb
       {
         if ( i+1 < args.length )
         {
-          openPHACTS_appkey = args[i+1];
+          openPhactsAppKey = args[i+1];
           System.out.println( "Set to use "+args[i+1]+" as openPHACTS Application Key" );
         }
         i++;
@@ -939,20 +939,20 @@ public class Owlkb
           /*
            * Backwards compatibility (originally uclsyntax was a boolean and open-physiology was hardcoded as the endpoint
            */
-          ucl_syntax = "http://open-physiology.org:5052/uclsyntax/";
+          uclSyntax = "http://open-physiology.org:5052/uclsyntax/";
           System.out.println( "UCL Syntax: endpoint set to http://open-physiology.org:5052/uclsyntax/" );
         }
         else if ( i+1 < args.length && (args[i+1].equals("f") || args[i+1].equals("false")) )
-          ucl_syntax = null;
+          uclSyntax = null;
         else if ( i+1 < args.length )
         {
-          ucl_syntax = args[i+1];
-          System.out.println( "UCL Syntax: endpoint set to " + ucl_syntax );
+          uclSyntax = args[i+1];
+          System.out.println( "UCL Syntax: endpoint set to " + uclSyntax );
         }
         else
         {
           System.out.println( "uclsyntax can be set to: true, false" );
-          help_only = true;
+          helpOnly = true;
           return;
         }
         i++;
@@ -968,7 +968,7 @@ public class Owlkb
         {
           System.out.println( "What do you want the ontology's namespace to be?" );
           System.out.println( "Default: http://www.ricordo.eu/ricordo.owl#RICORDO_" );
-          help_only = true;
+          helpOnly = true;
           return;
         }
       }
@@ -983,7 +983,7 @@ public class Owlkb
         {
           System.out.println( "Specify the base of the URL of the SPARQL endpoint you want to use." );
           System.out.println( "Default: null (in which case OWLKB will not interact with SPARQL)" );
-          help_only = true;
+          helpOnly = true;
           return;
         }
       }
@@ -992,12 +992,12 @@ public class Owlkb
         if ( i+1 < args.length )
         {
           System.out.println( "Using "+args[i+1]+" as ontology filename." );
-          kbfilename = args[++i];
+          kbFilename = args[++i];
         }
         else
         {
           System.out.println( "Specify the filename of the ontology." );
-          help_only = true;
+          helpOnly = true;
           return;
         }
       }
@@ -1005,30 +1005,30 @@ public class Owlkb
       {
         System.out.println( "Unrecognized command line argument: "+args[i] );
         System.out.println( "For help, run with HELP as command line argument." );
-        help_only = true;
+        helpOnly = true;
         return;
       }
     }
   }
 
-  public void send_gui(HttpExchange t)
+  public void sendGui(HttpExchange t)
   {
-    String the_html, the_js;
+    String theHtml, theJS;
 
     try
     {
-      the_html = readfile("gui.html");
-      the_js = readfile("gui.js");
+      theHtml = readFile("gui.html");
+      theJS = readFile("gui.js");
 
-      if ( the_html == null || the_js == null )
+      if ( theHtml == null || theJS == null )
       {
-        send_response( t, "The GUI could not be sent, due to a problem with the html file or the javascript file.", false );
+        sendResponse( t, "The GUI could not be sent, due to a problem with the html file or the javascript file.", false );
         return;
       }
 
-      the_html = the_html.replace("@JAVASCRIPT", "<script type='text/javascript'>"+the_js+"</script>");
+      theHtml = theHtml.replace("@JAVASCRIPT", "<script type='text/javascript'>"+theJS+"</script>");
 
-      send_response( t, the_html, false );
+      sendResponse( t, theHtml, false );
     }
     catch(Exception e)
     {
@@ -1036,11 +1036,11 @@ public class Owlkb
     }
   }
 
-  public String compute_addlabel_response( OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, boolean fJson )
+  public String computeAddlabelResponse( OWLOntology o, IRI ontology_iri, OWLOntologyManager m, String req, boolean fJson )
   {
-    int eqpos = req.indexOf('=');
+    int eqPos = req.indexOf('=');
 
-    if ( eqpos == -1 || eqpos == 0 )
+    if ( eqPos == -1 || eqPos == 0 )
     {
       if ( fJson )
         return "{'syntax error'}";
@@ -1048,8 +1048,8 @@ public class Owlkb
         return "Invalid syntax.  Syntax: /addlabel/iri=label, e.g.: /addlabel/RICORDO_123=volume of blood";
     }
 
-    String iri = req.substring(0,eqpos);
-    String label = req.substring(eqpos+1);
+    String iri = req.substring(0,eqPos);
+    String label = req.substring(eqPos+1);
 
     if ( iri.length() < "RICORDO_".length() || !iri.substring(0,"RICORDO_".length()).equals("RICORDO_") )
     {
@@ -1067,7 +1067,7 @@ public class Owlkb
         return "Blank labels are not allowed.";
     }
 
-    OWLEntity e = shorts.getEntity(iri);
+    OWLEntity e = shortformProvider.getEntity(iri);
 
     if ( e == null || !e.isOWLClass() )
     {
@@ -1077,7 +1077,7 @@ public class Owlkb
         return "The specified class could not be found.  Please make sure you're using the shortform of the iri, e.g., RICORDO_123 instead of http://website.com/RICORDO_123";
     }
 
-    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab );
+    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfsLabel );
 
     if ( !annots.isEmpty() )
     {
@@ -1091,22 +1091,22 @@ public class Owlkb
       }
     }
 
-    IRI rdfslab_iri = org.semanticweb.owlapi.vocab.OWLRDFVocabulary.RDFS_LABEL.getIRI();
-    OWLAnnotation a = df.getOWLAnnotation( df.getOWLAnnotationProperty(rdfslab_iri), df.getOWLLiteral(label) );
+    IRI rdfsLabelIRI = org.semanticweb.owlapi.vocab.OWLRDFVocabulary.RDFS_LABEL.getIRI();
+    OWLAnnotation a = df.getOWLAnnotation( df.getOWLAnnotationProperty(rdfsLabelIRI), df.getOWLLiteral(label) );
     OWLAxiom axiom = df.getOWLAnnotationAssertionAxiom(e.asOWLClass().getIRI(), a);
     m.applyChange(new AddAxiom( o, axiom ));
-    logstring( "Added rdfs:label "+label+" to class "+iri+"." );
+    logString( "Added rdfs:label "+label+" to class "+iri+"." );
 
-    maybe_save_ontology( o, ontology_iri, m );
+    maybeSaveOntology( o, ontology_iri, m );
 
     return fJson ? "{'ok'}" : "Class "+iri+" now has label "+escapeHTML(label);
   }
 
-  public void maybe_save_ontology( OWLOntology ont, IRI iri, OWLOntologyManager m )
+  public void maybeSaveOntology( OWLOntology ont, IRI iri, OWLOntologyManager m )
   {
-    if ( hd_save )
+    if ( hdSave )
     {
-      logstring( "Saving ontology to hard drive..." );
+      logString( "Saving ontology to hard drive..." );
 
       try
       {
@@ -1117,13 +1117,13 @@ public class Owlkb
         e.printStackTrace(); //To do: proper error handling here
       }
 
-      logstring( "Finished saving ontology to hard drive." );
+      logString( "Finished saving ontology to hard drive." );
     }
     else
-      logstring( "Skipping writing to hard drive (disabled by commandline argument)." );
+      logString( "Skipping writing to hard drive (disabled by commandline argument)." );
   }
 
-  public OWLClassExpression parse_manchester( String manchester, OWLOntology o, OWLEntityChecker ec )
+  public OWLClassExpression parseManchester( String manchester, OWLOntology o, OWLEntityChecker ec )
   {
     ManchesterOWLSyntaxEditorParser parser;
     OWLClassExpression exp;
@@ -1144,28 +1144,28 @@ public class Owlkb
     return exp;
   }
 
-  public String compute_rdfstore_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLEntityChecker ec, OWLReasoner r, String req )
+  public String computeRdfstoreResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLEntityChecker ec, OWLReasoner r, String req )
   {
-    String x = full_iri_from_full_or_short_iri( req, o );
+    String x = fullIriFromFullOrShortIri( req, o );
 
     if ( x != null )
       return x;
 
-    OWLClassExpression exp = parse_manchester( req, o, ec );
+    OWLClassExpression exp = parseManchester( req, o, ec );
 
     if ( exp != null )
     {
       ArrayList<String> terms = getSubTerms(exp, r, true, false, false);
 
-      return compute_response( terms, true, true, false );
+      return computeResponse( terms, true, true, false );
     }
 
     return req;
   }
 
-  public String compute_similar_molecules_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, OWLEntityChecker ec, String req )
+  public String computeSimilarMoleculesResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, OWLEntityChecker ec, String req )
   {
-    if ( openPHACTS_appid == null || openPHACTS_appkey == null )
+    if ( openPhactsAppId == null || openPhactsAppKey == null )
       return "{\"error\": \"To use the similar_molecules command, OWLKB must have openPHACTS appID and appKey specified (using Owlkb's command-line arguments)\"}";
 
     if ( !req.substring(0,4).equals("http") )
@@ -1174,16 +1174,16 @@ public class Owlkb
     StringBuilder sb = new StringBuilder("https://beta.openphacts.org/1.5/compound/classifications?uri=");
     sb.append( URLEncode( req ) );
     sb.append( "&_format=json&app_id=" );
-    sb.append( openPHACTS_appid );
+    sb.append( openPhactsAppId );
     sb.append( "&app_key=" );
-    sb.append( openPHACTS_appkey );
+    sb.append( openPhactsAppKey );
 
     String raw = queryURL( sb.toString() );
 
     if ( raw == null )
       return "{\"error\": \"Could not get details about indicated molecule from OpenPHACTS\"}";
 
-    String classification = naive_JSON_parse( raw, "hasChebiClassification", "[", "]" );
+    String classification = naiveJsonParse( raw, "hasChebiClassification", "[", "]" );
 
     if ( raw == null )
       return "{\"error\": \"Could not parse OpenPHACTS's response\"}";
@@ -1195,7 +1195,7 @@ public class Owlkb
     while ( matcher.find() )
     {
       String chebi = matcher.group();
-      OWLClassExpression exp = parse_manchester( chebi, o, ec );
+      OWLClassExpression exp = parseManchester( chebi, o, ec );
 
       if ( exp == null )
         return "{\"error\": \"OpenPHACTS indicated a CHEBI term, "+chebi+", unrecognized by OWLKB\"}";
@@ -1211,30 +1211,30 @@ public class Owlkb
     return "{\"error\": \"This command is currently under construction\"}";
   }
 
-  public String compute_subgraph_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String computeSubgraphResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     req = "," + req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
 
-    String feather_response = queryFeather("subgraph", req);
+    String featherResponse = queryFeather("subgraph", req);
 
-    if ( feather_response == null )
+    if ( featherResponse == null )
       return "?";
     else
-      return feather_response;
+      return featherResponse;
   }
 
-  public String compute_shortestpath_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String computeShortestpathResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     req = req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
-    String feather_response = queryFeather("shortpath", req);
+    String featherResponse = queryFeather("shortpath", req);
 
-    if ( feather_response == null )
+    if ( featherResponse == null )
       return "?";
     else
-      return feather_response;
+      return featherResponse;
   }
 
-  public String compute_generate_triples_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String computeGenerateTriplesResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     OWLReasoner r = reasoner;
     java.io.PrintWriter writer;
@@ -1248,7 +1248,7 @@ public class Owlkb
       return "{ \"error\": \"Could not open triples.nt for writing\" }";
     }
 
-    for ( OWLOntology ont : imp_closure )
+    for ( OWLOntology ont : importClosure )
     {
       Set<OWLClass> classes = ont.getClassesInSignature();
 
@@ -1298,13 +1298,13 @@ public class Owlkb
 
           OWLRestriction restrict = (OWLRestriction) exp;
 
-          Set<OWLObjectProperty> objprops = restrict.getObjectPropertiesInSignature();
+          Set<OWLObjectProperty> objProperties = restrict.getObjectPropertiesInSignature();
           boolean fBad = false;
 
-          for ( OWLObjectProperty objprop : objprops )
+          for ( OWLObjectProperty objPropery : objProperties )
           {
-            if ( !objprop.toStringID().equals( "http://purl.org/obo/owlapi/fma#regional_part_of" )
-            &&   !objprop.toStringID().equals( "http://purl.org/obo/owlapi/fma#constitutional_part_of" ) )
+            if ( !objPropery.toStringID().equals( "http://purl.org/obo/owlapi/fma#regional_part_of" )
+            &&   !objPropery.toStringID().equals( "http://purl.org/obo/owlapi/fma#constitutional_part_of" ) )
             {
               fBad = true;
               break;
@@ -1313,11 +1313,11 @@ public class Owlkb
           if ( fBad )
             continue;
 
-          Set<OWLClass> classes_in_signature = restrict.getClassesInSignature();
+          Set<OWLClass> classesInSignature = restrict.getClassesInSignature();
 
-          for ( OWLClass class_in_signature : classes_in_signature )
+          for ( OWLClass classInSignature : classesInSignature )
           {
-            writer.println( "<" + class_in_signature.toStringID() + "> <http://open-physiology.org/#super-or-equal> <" + cString + "> ." );
+            writer.println( "<" + classInSignature.toStringID() + "> <http://open-physiology.org/#super-or-equal> <" + cString + "> ." );
             break;
           }
         }
@@ -1329,22 +1329,22 @@ public class Owlkb
     return "{ \"result\": \"Triples saved to file triples.nt in owlkb directory\" }";
   }
 
-  public String compute_subhierarchy_response( OWLClassExpression exp, OWLReasoner r )
+  public String computeSubhierarchyResponse( OWLClassExpression exp, OWLReasoner r )
   {
     StringBuilder sb = new StringBuilder();
 
     sb.append( "{\n" );
-    append_subhierarchy( sb, exp, r, 1 );
+    appendSubhierarchy( sb, exp, r, 1 );
     sb.append( "\n}" );
 
     return sb.toString();
   }
 
-  public void append_subhierarchy( StringBuilder sb, OWLClassExpression exp, OWLReasoner r, int indent )
+  public void appendSubhierarchy( StringBuilder sb, OWLClassExpression exp, OWLReasoner r, int indent )
   {
-    append_spaces( sb, indent );
+    appendSpaces( sb, indent );
     sb.append( "\"subterms\":\n" );
-    append_spaces( sb, indent );
+    appendSpaces( sb, indent );
     sb.append( "[\n" );
 
     Set<Node<OWLClass>> nodes = r.getSubClasses( exp, true ).getNodes();
@@ -1362,36 +1362,36 @@ public class Owlkb
       else
         sb.append( ",\n" );
 
-      append_spaces( sb, indent + 1 );
+      appendSpaces( sb, indent + 1 );
       sb.append( "{\n" );
-      append_spaces( sb, indent + 2 );
-      sb.append( "\"term\": \"" + shorturl(c.getIRI().toString()) + "\",\n" );
+      appendSpaces( sb, indent + 2 );
+      sb.append( "\"term\": \"" + shortUrl(c.getIRI().toString()) + "\",\n" );
 
-      String label = LabelByClass( c );
+      String label = labelByClass( c );
       if ( label != null )
       {
-        append_spaces( sb, indent + 2 );
+        appendSpaces( sb, indent + 2 );
         sb.append( "\"label\": \"" + escapeJSON(label) + "\",\n" );
       }
 
-      append_subhierarchy( sb, c, r, indent+2 );
+      appendSubhierarchy( sb, c, r, indent+2 );
 
       sb.append( "\n" );
-      append_spaces( sb, indent + 1 );
+      appendSpaces( sb, indent + 1 );
       sb.append( "}" );
     }
 
     sb.append( "\n" );
-    append_spaces( sb, indent );
+    appendSpaces( sb, indent );
     sb.append( "]" );
   }
 
-  public void append_spaces( StringBuilder sb, int n )
+  public void appendSpaces( StringBuilder sb, int n )
   {
     sb.append( String.format( "%"+n+"s", "" ) );
   }
 
-  public String compute_apinatomy_response( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
+  public String computeApinatomyResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     String response = "[\n";
     boolean isFirstResult = true;
@@ -1408,21 +1408,21 @@ public class Owlkb
 
     if ( req.substring(0,6).equals( "24tile" ) )
     {
-      String top24 = readfile("24tiles.dat");
+      String top24 = readFile("24tiles.dat");
 
       return (top24 != null) ? top24 : "[]";
     }
 
     if ( req.equals("pkpd_base") )
     {
-      String toptiles = readfile("pkpdroot.dat");
+      String topTiles = readFile("pkpdroot.dat");
 
-      return (toptiles != null) ? toptiles : "[]";
+      return (topTiles != null) ? topTiles : "[]";
     }
 
     for ( String shortform : shortforms )
     {
-      OWLEntity e = shorts.getEntity(shortform);
+      OWLEntity e = shortformProvider.getEntity(shortform);
 
       if ( e == null || (!e.isOWLClass() && !e.isOWLNamedIndividual() ) )
         continue;
@@ -1434,19 +1434,19 @@ public class Owlkb
 
       response += "  {\n    \"_id\": \"" + escapeJSON(shortform) + "\",\n";
 
-      String the_label = get_one_rdfs_label( e, o );
+      String theLabel = getOneRdfsLabel( e, o );
 
-      if ( the_label == null )
-        the_label = shortform;
+      if ( theLabel == null )
+        theLabel = shortform;
 
-      response += "    \"name\": \"" + escapeJSON(the_label) + "\",\n    \"sub\":\n    [\n";
+      response += "    \"name\": \"" + escapeJSON(theLabel) + "\",\n    \"sub\":\n    [\n";
 
       if ( e.isOWLClass() )
       {
-        List<Apinatomy_Sub> subs = get_apinatomy_subs(e, reasoner, o);
+        List<ApinatomySub> subs = getApinatomySubs(e, reasoner, o);
         boolean isFirstSub = true;
 
-        for ( Apinatomy_Sub sub : subs )
+        for ( ApinatomySub sub : subs )
         {
           if ( isFirstSub )
             isFirstSub = false;
@@ -1468,14 +1468,14 @@ public class Owlkb
     return response;
   }
 
-  public String queryURL(String urlstring)
+  public String queryURL(String urlString)
   {
     StringBuilder buf = null;
     java.io.Reader r = null;
 
     try
     {
-      java.net.URL url = new java.net.URL(urlstring);
+      java.net.URL url = new java.net.URL(urlString);
       java.net.URLConnection con = url.openConnection();
 
       /*
@@ -1502,85 +1502,31 @@ public class Owlkb
     }
   }
 
-  public String query_sparql_for_count(String x)
-  {
-    StringBuilder sb = new StringBuilder();
-    sb.append( "SELECT COUNT(*) WHERE " );
-    sb.append( "{ " );
-      sb.append( "?s ?p ?o . " );
-
-      if ( x.length() >= 3 && x.substring(0,3).toLowerCase().equals("fma") )
-        sb.append( "<http://purl.org/obo/owlapi/fma#"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
-      else if ( x.length() >= 4 && x.substring(0,4).toLowerCase().equals("pkpd") )
-        sb.append( "<http://www.ddmore.org/ontologies/ontology/pkpd-ontology#"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
-      else
-        sb.append( "<"+x+"> <http://open-physiology.org/#super-or-equal> ?o " );
-
-      sb.append( "FILTER( ?p != <http://open-physiology.org/#super-or-equal> )" );
-    sb.append( "}" );
-
-    String sparqlcode = sb.toString();
-
-    try
-    {
-      sparqlcode = URLEncode(sparqlcode);
-    }
-    catch(Exception e)
-    {
-      ;
-    }
-
-    String s = queryURL(sparql + sparqlcode);
-
-    int pos = s.indexOf( "\"value\": \"" );
-
-    if ( pos == -1 )
-      return null;
-
-    s = s.substring( pos + "\"value\": \"".length() );
-
-    pos = s.indexOf( '\"' );
-
-    if ( pos == -1 )
-      return null;
-
-    return s.substring( 0, pos );
-  }
-
-  public String queryFeatherweight(String x)
-  {
-    String s = queryURL("http://open-physiology.org:5053/count-recursive/http://purl.org/obo/owlapi/fma%23"+x);
-    s = s.substring("{\"Results\": [".length() );
-    s = s.substring(0,s.length()-2);
-
-    return s;
-  }
-
   public String queryFeather( String command, String x )
   {
     return queryURL("http://open-physiology.org:5053/"+command+"/"+x);
   }
 
-  public List<Apinatomy_Sub> get_apinatomy_subs( OWLEntity e, OWLReasoner r, OWLOntology o )
+  public List<ApinatomySub> getApinatomySubs( OWLEntity e, OWLReasoner r, OWLOntology o )
   {
-    List<Apinatomy_Sub> response = new ArrayList<Apinatomy_Sub>();
+    List<ApinatomySub> response = new ArrayList<ApinatomySub>();
 
     if ( !( e instanceof OWLClass ) )
       return response;
 
     OWLClass c = e.asOWLClass();
 
-    ArrayList<String> subclasslist = getSubTerms(c, r, false, true, false);
+    ArrayList<String> subclassList = getSubTerms(c, r, false, true, false);
 
-    for ( String subclass : subclasslist )
+    for ( String subclass : subclassList )
     {
-      String the_id = shorturl( subclass );
+      String theID = shortUrl( subclass );
 
-      if ( !the_id.equals( "Nothing" ) )
-        response.add( new Apinatomy_Sub( the_id, "subclass" ) );
+      if ( !theID.equals( "Nothing" ) )
+        response.add( new ApinatomySub( theID, "subclass" ) );
     }
 
-    for ( OWLOntology imp : imp_closure )
+    for ( OWLOntology imp : importClosure )
     {
       Set<OWLClassExpression> supers = c.getSuperClasses(imp);
 
@@ -1591,16 +1537,16 @@ public class Owlkb
 
         String type = null;
         OWLRestriction restrict = (OWLRestriction) exp;
-        Set<OWLObjectProperty> objprops = restrict.getObjectPropertiesInSignature();
+        Set<OWLObjectProperty> objProperties = restrict.getObjectPropertiesInSignature();
 
-        for ( OWLObjectProperty objprop : objprops )
+        for ( OWLObjectProperty objPropery : objProperties )
         {
-          String objprop_short = shorturl( objprop.toStringID() );
+          String objPropertyShort = shortUrl( objPropery.toStringID() );
 
-          if ( objprop_short.equals( "regional_part" ) )
+          if ( objPropertyShort.equals( "regional_part" ) )
             type = "regional part";
           else
-          if ( objprop_short.equals( "constitutional_part" ) )
+          if ( objPropertyShort.equals( "constitutional_part" ) )
             type = "constitutional part";
 
           break;
@@ -1609,10 +1555,10 @@ public class Owlkb
         if ( type == null )
           continue;
 
-        Set<OWLClass> classes_in_signature = restrict.getClassesInSignature();
-        for ( OWLClass class_in_signature : classes_in_signature )
+        Set<OWLClass> classesInSignature = restrict.getClassesInSignature();
+        for ( OWLClass classInSignature : classesInSignature )
         {
-          response.add( new Apinatomy_Sub( shorturl(class_in_signature.toStringID()), type ) );
+          response.add( new ApinatomySub( shortUrl(classInSignature.toStringID()), type ) );
           break;
         }
       }
@@ -1624,34 +1570,34 @@ public class Owlkb
         if ( !(ind instanceof OWLNamedIndividual) )
           continue;
 
-        response.add( new Apinatomy_Sub( shorturl( ind.asOWLNamedIndividual().getIRI().toString() ), "subclass" ) );
+        response.add( new ApinatomySub( shortUrl( ind.asOWLNamedIndividual().getIRI().toString() ), "subclass" ) );
       }
     }
 
     return response;
   }
 
-  class Apinatomy_Sub
+  class ApinatomySub
   {
     public String id;
     public String type;
 
-    public Apinatomy_Sub(String id, String type)
+    public ApinatomySub(String id, String type)
     {
       this.id = id;
       this.type = type;
     }
   }
 
-  public String get_one_rdfs_label( OWLEntity e, OWLOntology o )
+  public String getOneRdfsLabel( OWLEntity e, OWLOntology o )
   {
-    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfslab);
+    Set<OWLAnnotation> annots = e.getAnnotations(o, rdfsLabel);
 
     if ( annots.isEmpty() )
     {
-      for ( OWLOntology imp : imp_closure )
+      for ( OWLOntology imp : importClosure )
       {
-        annots = e.getAnnotations( imp, rdfslab );
+        annots = e.getAnnotations( imp, rdfsLabel );
         if ( !annots.isEmpty() )
           break;
       }
@@ -1716,9 +1662,9 @@ public class Owlkb
     return out.toString();
   }
 
-  String full_iri_from_full_or_short_iri( String x, OWLOntology o )
+  String fullIriFromFullOrShortIri( String x, OWLOntology o )
   {
-    OWLEntity e = shorts.getEntity(x);
+    OWLEntity e = shortformProvider.getEntity(x);
 
     if ( e != null )
       return e.getIRI().toString();
@@ -1729,7 +1675,7 @@ public class Owlkb
     return null;
   }
 
-  public static Map<String, String> get_args(String query)
+  public static Map<String, String> getArgs(String query)
   {
     Map<String, String> result = new HashMap<String, String>();
 
@@ -1745,12 +1691,12 @@ public class Owlkb
     return result;
   }
 
-  public String naive_JSON_parse(String json, String key)
+  public String naiveJsonParse(String json, String key)
   {
-    return naive_JSON_parse( json, key, "\"", "\"" );
+    return naiveJsonParse( json, key, "\"", "\"" );
   }
 
-  public String naive_JSON_parse(String json, String key, String start, String end )
+  public String naiveJsonParse(String json, String key, String start, String end )
   {
     String needle = "\"" + key + "\":";
     int pos = json.indexOf(needle);
@@ -1767,37 +1713,37 @@ public class Owlkb
 
     pos += start.length();
 
-    int endpos = json.indexOf(end, pos);
+    int endPos = json.indexOf(end, pos);
 
-    if ( endpos == -1 )
+    if ( endPos == -1 )
       return null;
 
-    return json.substring(pos,endpos);
+    return json.substring(pos,endPos);
   }
 
-  private void class_to_termlist( Node<OWLClass> node, List<String> L, boolean longIRI, boolean verbose )
+  private void classToTermlist( Node<OWLClass> node, List<String> L, boolean longIRI, boolean verbose )
   {
-    obj_to_termlist( node.getRepresentativeElement(), L, longIRI, verbose );
+    objToTermlist( node.getRepresentativeElement(), L, longIRI, verbose );
   }
 
-  private void individual_to_termlist( Node<OWLNamedIndividual> node, List<String> L, boolean longIRI, boolean verbose )
+  private void individualToTermlist( Node<OWLNamedIndividual> node, List<String> L, boolean longIRI, boolean verbose )
   {
-    obj_to_termlist( node.getRepresentativeElement(), L, longIRI, verbose );
+    objToTermlist( node.getRepresentativeElement(), L, longIRI, verbose );
   }
 
-  private void obj_to_termlist( OWLEntity c, List<String> L, boolean longIRI, boolean verbose )
+  private void objToTermlist( OWLEntity c, List<String> L, boolean longIRI, boolean verbose )
   {
-    String the_iri = longIRI ? c.getIRI().toString() : c.toStringID();
+    String theIRI = longIRI ? c.getIRI().toString() : c.toStringID();
 
     if ( verbose )
     {
       StringBuilder sb = new StringBuilder();
 
       sb.append( "{\n \"term\": \"" );
-      sb.append( the_iri );
+      sb.append( theIRI );
       sb.append( "\",\n \"label\": " );
 
-      String label = LabelByClass(c);
+      String label = labelByClass(c);
 
       if ( label == null )
         sb.append( "null" );
@@ -1809,10 +1755,10 @@ public class Owlkb
       L.add(sb.toString());
     }
     else
-      L.add(the_iri);
+      L.add(theIRI);
   }
 
-  String compute_demo_response( OWLClassExpression exp, OWLReasoner r, OWLOntologyManager m, OWLOntology o, IRI iri, long start_time, boolean fJson, boolean verbose )
+  String computeDemoResponse( OWLClassExpression exp, OWLReasoner r, OWLOntologyManager m, OWLOntology o, IRI iri, long startTime, boolean fJson, boolean verbose )
   {
     ArrayList<String> terms;
 
@@ -1832,9 +1778,9 @@ public class Owlkb
       sb.append( "{\"terms\": [" );
 
       if ( verbose )
-        sb.append( jsobjs_to_csv( terms ) );
+        sb.append( jsObjsToCSV( terms ) );
       else
-        sb.append( terms_to_csv( terms ) );
+        sb.append( termsToCSV( terms ) );
 
       sb.append( "]," );
     }
@@ -1843,7 +1789,7 @@ public class Owlkb
       sb.append( "<h3>Term</h3><ul>" );
 
       for ( String termp : terms )
-        sb.append( "<li>" + shorturl(termp) + "</li>" );
+        sb.append( "<li>" + shortUrl(termp) + "</li>" );
 
       sb.append( "</ul>" );
     }
@@ -1864,9 +1810,9 @@ public class Owlkb
       sb.append( "\"subterms\": [" );
 
       if ( verbose )
-        sb.append( jsobjs_to_csv( subs ) );
+        sb.append( jsObjsToCSV( subs ) );
       else
-        sb.append( terms_to_csv( subs ) );
+        sb.append( termsToCSV( subs ) );
 
       sb.append( "]," );
     }
@@ -1875,20 +1821,20 @@ public class Owlkb
       sb.append( "<h3>Subterms</h3><ul>" );
 
       for ( String termp : subs )
-        sb.append( "<li>" + shorturl(termp) + "</li>" );
+        sb.append( "<li>" + shortUrl(termp) + "</li>" );
 
       sb.append( "</ul>" );
     }
 
     if ( fJson )
-      sb.append( "\"runtime\": \"" + (System.nanoTime() - start_time) / 1000000 + "ms\"}" );
+      sb.append( "\"runtime\": \"" + (System.nanoTime() - startTime) / 1000000 + "ms\"}" );
     else
-      sb.append( "<h5>Runtime</h5>This computation took "+(System.nanoTime() - start_time) / 1000000+"ms to complete" );
+      sb.append( "<h5>Runtime</h5>This computation took "+(System.nanoTime() - startTime) / 1000000+"ms to complete" );
 
     return sb.toString();
   }
 
-  String terms_to_csv( List<String> terms )
+  String termsToCSV( List<String> terms )
   {
     StringBuilder sb = new StringBuilder();
     boolean fFirst = false;
@@ -1900,25 +1846,25 @@ public class Owlkb
       else
         sb.append( "," );
 
-      sb.append( "\"" + shorturl(term) + "\"" );
+      sb.append( "\"" + shortUrl(term) + "\"" );
     }
 
     return sb.toString();
   }
 
-  String jsobjs_to_csv( List<String> jsobjs )
+  String jsObjsToCSV( List<String> jsObjs )
   {
     StringBuilder sb = new StringBuilder();
     boolean fFirst = false;
 
-    for ( String jsobj : jsobjs )
+    for ( String jsObj : jsObjs )
     {
       if ( !fFirst )
         fFirst = true;
       else
         sb.append(",");
 
-      sb.append(jsobj);
+      sb.append(jsObj);
     }
 
     return sb.toString();
@@ -1948,7 +1894,7 @@ public class Owlkb
     }
   }
 
-  static String readfile(String filename)
+  static String readFile(String filename)
   {
     try
     {
