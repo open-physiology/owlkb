@@ -35,6 +35,8 @@ import org.semanticweb.owlapi.reasoner.InferenceType;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.*;
 import org.semanticweb.owlapi.io.FileDocumentSource;
+import org.semanticweb.owlapi.io.UnparsableOntologyException;
+import org.semanticweb.owlapi.io.OWLOntologyCreationIOException;
 import org.coode.owlapi.manchesterowlsyntax.ManchesterOWLSyntaxEditorParser;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProvider;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProviderAdapter;
@@ -103,18 +105,27 @@ public class Owlkb
 
     File kbFile;
     OWLOntology ont;
+
     try
     {
       kbFile = new File(kbFilename);
-      ont = manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbFile),config);
+    }
+    catch ( NullPointerException e )
+    {
+      System.out.println( "Could not load file: filename is null" );
+      System.out.println( "If you didn't already, try running Owlkb with command line arguments: -file <filename>" );
+      return;
     }
     catch ( Exception e )
     {
-      System.out.println( "Could not load file: "+kbFilename );
-      System.out.println( "To specify a different filename, run with -file <filename>" );
-      System.out.println( "Also, make sure java has permission to access the file." );
+      System.out.println( "An unknown error occurred while trying to parse/load filename: " + kbFilename );
       return;
     }
+
+    ont = loadOwlkbOntology( kbFile, kbFilename, manager, config );
+
+    if ( ont == null )
+      return;
 
     logString( "Ontology is loaded.");
 
@@ -1901,6 +1912,81 @@ public class Owlkb
       return new java.util.Scanner(new File(filename)).useDelimiter("\\A").next();
     }
     catch(Exception e)
+    {
+      return null;
+    }
+  }
+
+  static OWLOntology loadOwlkbOntology( File kbFile, String kbFilename, OWLOntologyManager manager, OWLOntologyLoaderConfiguration config )
+  {
+    try
+    {
+      return manager.loadOntologyFromOntologyDocument(new FileDocumentSource(kbFile),config);
+    }
+    catch ( UnparsableOntologyException e )
+    {
+      System.out.println( "The ontology could not be parsed: " + kbFilename );
+      e.printStackTrace();
+    }
+    catch( UnloadableImportException e )
+    {
+      System.out.println( "The ontology could not be loaded because of an 'UnloadableImportException'" );
+      System.out.println( "This means the ontology tried to import one or more ontologies, one of which failed to load." );
+
+      try
+      {
+        System.out.println( "The offending import was:" );
+        System.out.println( e.getImportsDeclaration().getIRI().toString() );
+      }
+      catch( Exception e2 )
+      {
+        System.out.println( "Embarrassingly, an error occurred while trying to get details about the offending import." );
+        System.out.println( "------" );
+        System.out.println( "Stacktrace of import error:" );
+        e.printStackTrace();
+        System.out.println( "------" );
+        System.out.println( "Stacktrace of error trying to get info about offending import:" );
+        e2.printStackTrace();
+      }
+    }
+    catch ( OWLOntologyCreationIOException e )
+    {
+      System.out.println( "Could not open " + kbFilename );
+      System.out.println( "Details:" );
+      System.out.println( e.getMessage() );
+      System.out.println( "--------" );
+      System.out.println( "To specify a different filename, run with -file <filename>" );
+      System.out.println( "Also, make sure java has permission to access the file." );
+    }
+    catch ( OWLOntologyDocumentAlreadyExistsException e )
+    {
+      System.out.println( "Could not open " + kbFilename + ": document already exists?" );
+      System.out.println( "This might occur, for example, if the ontology attempts to import the same subontology multiple times, or if some imported ontology itself imports some other imported ontology" );
+    }
+    catch ( OWLOntologyAlreadyExistsException e )
+    {
+      System.out.println( "Could not open " + kbFilename + ": document already exists?" );
+      System.out.println( "This might occur, for example, if the ontology attempts to import the same subontology multiple times, or if some imported ontology itself imports some other imported ontology" );
+    }
+    catch ( OWLOntologyCreationException e )
+    {
+      System.out.println( "Could not load file: "+kbFilename );
+      System.out.println( "An unknown OWL Ontology Creation Exception prevented the load." );
+      System.out.println( "------" );
+      System.out.println( "Details:" );
+      System.out.println( e.getMessage() );
+      System.out.println( "------" );
+      System.out.println( "Stack trace:" );
+      e.printStackTrace();
+    }
+    catch ( Exception e )
+    {
+      System.out.println( "Could not load file: "+kbFilename );
+      System.out.println( "An unknown exception prevented the load." );
+      System.out.println( "Stack trace:" );
+      e.printStackTrace();
+    }
+    finally
     {
       return null;
     }
