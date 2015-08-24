@@ -37,6 +37,7 @@ import org.semanticweb.owlapi.model.*;
 import org.semanticweb.owlapi.io.FileDocumentSource;
 import org.semanticweb.owlapi.io.UnparsableOntologyException;
 import org.semanticweb.owlapi.io.OWLOntologyCreationIOException;
+import org.semanticweb.owlapi.io.OWLOntologyInputSourceException;
 import org.coode.owlapi.manchesterowlsyntax.ManchesterOWLSyntaxEditorParser;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProvider;
 import org.semanticweb.owlapi.util.BidirectionalShortFormProviderAdapter;
@@ -1927,6 +1928,7 @@ public class Owlkb
     {
       System.out.println( "The ontology could not be parsed: " + kbFilename );
       e.printStackTrace();
+      return null;
     }
     catch( UnloadableImportException e )
     {
@@ -1948,6 +1950,18 @@ public class Owlkb
         System.out.println( "Stacktrace of error trying to get info about offending import:" );
         e2.printStackTrace();
       }
+
+      return null;
+    }
+    catch ( OWLOntologyInputSourceException e )
+    {
+      System.out.println( "Could not open " + kbFilename );
+      System.out.println( "Details:" );
+      System.out.println( e.getMessage() );
+      System.out.println( "--------" );
+      System.out.println( "To specify a different filename, run with -file <filename>" );
+      System.out.println( "Also, make sure java has permission to access the file." );
+      return null;
     }
     catch ( OWLOntologyCreationIOException e )
     {
@@ -1957,16 +1971,19 @@ public class Owlkb
       System.out.println( "--------" );
       System.out.println( "To specify a different filename, run with -file <filename>" );
       System.out.println( "Also, make sure java has permission to access the file." );
+      return null;
     }
     catch ( OWLOntologyDocumentAlreadyExistsException e )
     {
       System.out.println( "Could not open " + kbFilename + ": document already exists?" );
       System.out.println( "This might occur, for example, if the ontology attempts to import the same subontology multiple times, or if some imported ontology itself imports some other imported ontology" );
+      return null;
     }
     catch ( OWLOntologyAlreadyExistsException e )
     {
       System.out.println( "Could not open " + kbFilename + ": document already exists?" );
       System.out.println( "This might occur, for example, if the ontology attempts to import the same subontology multiple times, or if some imported ontology itself imports some other imported ontology" );
+      return null;
     }
     catch ( OWLOntologyCreationException e )
     {
@@ -1978,6 +1995,7 @@ public class Owlkb
       System.out.println( "------" );
       System.out.println( "Stack trace:" );
       e.printStackTrace();
+      return null;
     }
     catch ( Exception e )
     {
@@ -1985,9 +2003,6 @@ public class Owlkb
       System.out.println( "An unknown exception prevented the load." );
       System.out.println( "Stack trace:" );
       e.printStackTrace();
-    }
-    finally
-    {
       return null;
     }
   }
