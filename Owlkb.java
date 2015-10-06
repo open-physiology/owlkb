@@ -1226,6 +1226,7 @@ public class Owlkb
   public String computeSubgraphResponse( OWLOntology o, IRI iri, OWLOntologyManager m, OWLReasoner reasoner, String req )
   {
     req = "," + req.replace("fma:", "http://purl.org/obo/owlapi/fma%23FMA_");
+    req = req.replace("#", "%23");
 
     String featherResponse = queryFeather("subgraph", req);
 
